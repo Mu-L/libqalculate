@@ -5992,6 +5992,14 @@ int main(int argc, char *argv[]) {
 				if(check_exchange_rates()) mstruct->set(CALCULATOR->convertToOptimalUnit(*mstruct, evalops, true));
 				else mstruct->set(mstruct_new);
 				result_action_executed();
+			} else if(EQUALS_IGNORECASE_AND_LOCAL(str, "mixed", _c("units", "mixed"))) {
+				mstruct_exact.setUndefined();
+				MixedUnitsConversion save_mixed_units_conversion = evalops.mixed_units_conversion;
+				evalops.mixed_units_conversion = MIXED_UNITS_CONVERSION_FORCE_INTEGER;
+				mstruct->set(CALCULATOR->convertToMixedUnits(*mstruct, evalops));
+				evalops.mixed_units_conversion = save_mixed_units_conversion;
+				result_action_executed();
+			//decimal fraction
 			} else if(EQUALS_IGNORECASE_AND_LOCAL(str, "prefix", _("prefix"))) {
 				bool save_pre = printops.use_unit_prefixes;
 				bool save_cur = printops.use_prefixes_for_currencies;
@@ -8748,7 +8756,7 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 	if(i_maxtime < 0) return;
 
 	string str, str_conv, from_str;
-	bool do_bases = programmers_mode, do_factors = false, do_expand = false, do_pfe = false, do_calendars = false, do_binary_prefixes = false, fraction_changed = false;
+	bool do_bases = programmers_mode, do_mixed = false, do_factors = false, do_expand = false, do_pfe = false, do_calendars = false, do_binary_prefixes = false, fraction_changed = false;
 	avoid_recalculation = false;
 	bool goto_input = interactive_mode;
 
@@ -8911,8 +8919,12 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 					printops.custom_time_zone = 60;
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "factors", _("factors")) || to_str == "factor") {
 					do_factors = true;
+					do_pfe = false;
+					do_expand = false;
 				} else if(equalsIgnoreCase(to_str, "partial fraction") || equalsIgnoreCase(to_str, _("partial fraction")) || to_str == "partial") {
 					do_pfe = true;
+					do_factors = false;
+					do_expand = false;
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "bases", _("bases"))) {
 					do_bases = true;
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "calendars", _("calendars"))) {
@@ -8936,6 +8948,7 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 					evalops.parse_options.units_enabled = true;
 					evalops.auto_post_conversion = POST_CONVERSION_OPTIMAL_SI;
 					str_conv = "";
+					do_mixed = false;
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "prefix", _("prefix"))) {
 					evalops.parse_options.units_enabled = true;
 					printops.use_unit_prefixes = true;
@@ -8945,6 +8958,7 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 					evalops.parse_options.units_enabled = true;
 					evalops.auto_post_conversion = POST_CONVERSION_BASE;
 					str_conv = "";
+					do_mixed = false;
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str1, "base", _("base"))) {
 					if(to_str2 == "b26" || to_str2 == "B26") printops.base = BASE_BIJECTIVE_26;
 					else if(equalsIgnoreCase(to_str2, "bcd")) printops.base = BASE_BINARY_DECIMAL;
@@ -8978,6 +8992,7 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "mixed", _c("units", "mixed"))) {
 					evalops.auto_post_conversion = POST_CONVERSION_NONE;
 					evalops.mixed_units_conversion = MIXED_UNITS_CONVERSION_FORCE_INTEGER;
+					if(!str_conv.empty()) do_mixed = true;
 				//decimal fraction
 				} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "decimals", _("decimals"))) {
 					dual_fraction = 0;
@@ -9011,6 +9026,7 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 						if(delay_complex != (cnf != COMPLEX_NUMBER_FORM_POLAR && cnf != COMPLEX_NUMBER_FORM_CIS) && u && u->baseUnit() == CALCULATOR->getRadUnit() && u->baseExponent() == 1) delay_complex = !delay_complex;
 						if(!str_conv.empty()) str_conv += " to ";
 						str_conv += to_str;
+						do_mixed = false;
 					}
 				}
 				if(str_left.empty()) break;
@@ -9028,9 +9044,13 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 			if(to_str == "factor" || EQUALS_IGNORECASE_AND_LOCAL(to_str, "factorize", _("factorize"))) {
 				str = str.substr(i + 1);
 				do_factors = true;
+				do_pfe = false;
+				do_expand = false;
 			} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "expand", _("expand"))) {
 				str = str.substr(i + 1);
 				do_expand = true;
+				do_pfe = false;
+				do_factors = false;
 			}
 		}
 	}
@@ -9514,6 +9534,11 @@ void execute_expression(bool do_mathoperation, MathOperation op, MathFunction *f
 			execute_command(do_pfe ? COMMAND_EXPAND_PARTIAL_FRACTIONS : (do_expand ? COMMAND_EXPAND : COMMAND_FACTORIZE), false, auto_calculate);
 			if(!prepend_mstruct.isUndefined() && mstruct->isInteger()) prepend_mstruct.setUndefined();
 		}
+	}
+	if(do_mixed && (!do_stack || stack_index == 0)) {
+		evalops.mixed_units_conversion = MIXED_UNITS_CONVERSION_FORCE_INTEGER;
+		mstruct->set(CALCULATOR->convertToMixedUnits(*mstruct, evalops));
+		mstruct_exact.set(CALCULATOR->convertToMixedUnits(mstruct_exact, evalops));
 	}
 
 	if(!fixed_fraction_has_sign && printops.number_fraction_format == FRACTION_COMBINED_FIXED_DENOMINATOR && !contains_fraction_q(*mstruct)) printops.number_fraction_format = FRACTION_FRACTIONAL_FIXED_DENOMINATOR;

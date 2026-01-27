@@ -1794,7 +1794,7 @@ string Calculator::calculateAndPrint(string str, int msecs, const EvaluationOpti
 	if(auto_approx != AUTOMATIC_APPROXIMATION_OFF) evalops.approximation = APPROXIMATION_TRY_EXACT;
 
 	MathStructure mstruct;
-	bool do_bases = false, do_factors = false, do_pfe = false, do_calendars = false, do_expand = false, do_binary_prefixes = false, complex_angle_form = false, fraction_changed = false;
+	bool do_bases = false, do_mixed = false, do_factors = false, do_pfe = false, do_calendars = false, do_expand = false, do_binary_prefixes = false, complex_angle_form = false, fraction_changed = false;
 
 	string to_str = parseComments(str, evalops.parse_options);
 	if(!to_str.empty() && str.empty()) {stopControl(); if(parsed_expression) {*parsed_expression = "";} return "";}
@@ -1948,6 +1948,7 @@ string Calculator::calculateAndPrint(string str, int msecs, const EvaluationOpti
 				evalops.parse_options.units_enabled = true;
 				evalops.auto_post_conversion = POST_CONVERSION_OPTIMAL_SI;
 				str_conv = "";
+				do_mixed = false;
 			} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "prefix", _("prefix"))) {
 				evalops.parse_options.units_enabled = true;
 				printops.use_prefixes_for_currencies = true;
@@ -1958,6 +1959,7 @@ string Calculator::calculateAndPrint(string str, int msecs, const EvaluationOpti
 				evalops.parse_options.units_enabled = true;
 				evalops.auto_post_conversion = POST_CONVERSION_BASE;
 				str_conv = "";
+				do_mixed = false;
 			// number base #
 			} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str1, "base", _("base"))) {
 				if(to_str2 == "b26" || to_str2 == "B26") printops.base = BASE_BIJECTIVE_26;
@@ -1985,6 +1987,7 @@ string Calculator::calculateAndPrint(string str, int msecs, const EvaluationOpti
 				evalops.parse_options.units_enabled = true;
 				evalops.auto_post_conversion = POST_CONVERSION_NONE;
 				evalops.mixed_units_conversion = MIXED_UNITS_CONVERSION_FORCE_INTEGER;
+				if(!str_conv.empty()) do_mixed = true;
 			//decimal fraction
 			} else if(EQUALS_IGNORECASE_AND_LOCAL(to_str, "decimals", _("decimals"))) {
 				printops.restrict_fraction_length = false;
@@ -2020,6 +2023,7 @@ string Calculator::calculateAndPrint(string str, int msecs, const EvaluationOpti
 					// expression after "to" is by default interpreted as unit expression
 					if(!str_conv.empty()) str_conv += " to ";
 					str_conv += to_str;
+					do_mixed = false;
 				}
 			}
 			if(str_left.empty()) break;
@@ -2125,6 +2129,12 @@ string Calculator::calculateAndPrint(string str, int msecs, const EvaluationOpti
 		mstruct_exact.integerFactorize();
 	} else if(do_expand) {
 		mstruct.expand(evalops, false);
+		mstruct_exact.expand(evalops, false);
+	}
+	if(do_mixed) {
+		evalops.mixed_units_conversion = MIXED_UNITS_CONVERSION_FORCE_INTEGER;
+		mstruct.set(CALCULATOR->convertToMixedUnits(mstruct, evalops));
+		mstruct_exact.set(CALCULATOR->convertToMixedUnits(mstruct_exact, evalops));
 	}
 
 	// handle "to partial fraction"

@@ -2441,6 +2441,147 @@ void replace_aborted_variables(MathStructure &m) {
 	}
 }
 
+bool fix_inequalities(MathStructure &m, const EvaluationOptions &eo) {
+	if(m.isComparison() && m.comparisonType() != COMPARISON_EQUALS && m.comparisonType() != COMPARISON_NOT_EQUALS) {
+		bool a_pos = m[0].representsPositive(true);
+		bool a_nneg = a_pos || m[0].representsNonNegative(true);
+		bool a_neg = !a_nneg && m[0].representsNegative(true);
+		bool a_npos = !a_pos && (a_neg || m[0].representsNonPositive(true));
+		bool b_pos = m[1].representsPositive(true);
+		bool b_nneg = b_pos || m[1].representsNonNegative(true);
+		bool b_neg = !b_nneg && m[1].representsNegative(true);
+		bool b_npos = !b_pos && (b_neg || m[1].representsNonPositive(true));
+		switch(m.comparisonType()) {
+			case COMPARISON_LESS: {
+				if((a_pos || a_nneg) && (b_neg || b_npos)) {
+					m.clear(true);
+					return true;
+				}
+				if((b_pos && (a_neg || a_npos)) || (b_nneg && a_neg)) {
+					m.set(1, 1, 0, true);
+					return true;
+				}
+				break;
+			}
+			case COMPARISON_EQUALS_LESS: {
+				if((a_nneg && b_npos) || (b_nneg && a_npos)) {
+					m.setComparisonType(COMPARISON_EQUALS);
+					m[1].clear(true);
+					m.childUpdated(2);
+					return true;
+				}
+				if((a_pos && (b_neg || b_npos)) || (a_nneg && b_neg)) {
+					m.clear(true);
+					return true;
+				}
+				if((b_pos && (a_neg || a_npos)) || (b_nneg && a_neg)) {
+					m.set(1, 1, 0, true);
+					return true;
+				}
+				break;
+			}
+			case COMPARISON_GREATER: {
+				if((a_pos && (b_neg || b_npos)) || (a_nneg && b_neg)) {
+					m.set(1, 1, 0, true);
+					return true;
+				}
+				if((b_pos || b_nneg) && (a_neg || a_npos)) {
+					m.clear(true);
+					return true;
+				}
+				break;
+			}
+			case COMPARISON_EQUALS_GREATER: {
+				if((a_nneg && b_npos) || (b_nneg && a_npos)) {
+					m.setComparisonType(COMPARISON_EQUALS);
+					m[1].clear(true);
+					m.childUpdated(2);
+					return true;
+				}
+				if((a_pos && (b_neg || b_npos)) || (a_nneg && b_neg)) {
+					m.set(1, 1, 0, true);
+					return true;
+				}
+				if((b_pos && (a_neg || a_npos)) || (b_nneg && a_neg)) {
+					m.clear(true);
+					return true;
+				}
+				break;
+			}
+			default: {}
+		}
+		if(!m[0].isNumber() && m[1].isNumber() && m[0].representsInteger() && m[1].number().isReal()) {
+			if(m[1].number().isInteger()) {
+				if(m.comparisonType() == COMPARISON_LESS) {
+					if(m[1].number().isZero() && a_neg) {
+						m.set(1, 1, 0, true);
+						return true;
+					} else if(m[1].number().subtract(1)) {
+						m.setComparisonType(COMPARISON_EQUALS_LESS);
+						fix_inequalities(m, eo);
+						return true;
+					}
+				} else if(m.comparisonType() == COMPARISON_GREATER) {
+					if(m[1].number().isZero() && a_pos) {
+						m.set(1, 1, 0, true);
+						return true;
+					} else if(m[1].number().add(1)) {
+						m.setComparisonType(COMPARISON_EQUALS_GREATER);
+						fix_inequalities(m, eo);
+						return true;
+					}
+				} else if(m.comparisonType() == COMPARISON_EQUALS_GREATER && a_pos && m[1].isOne()) {
+					m.set(1, 1, 0, true);
+					return true;
+				} else if(m.comparisonType() == COMPARISON_EQUALS_LESS && a_neg && m[1].isMinusOne()) {
+					m.set(1, 1, 0, true);
+					return true;
+				}
+			} else if(m[1].number().isNonInteger()) {
+				switch(m.comparisonType()) {
+					case COMPARISON_LESS: {}
+					case COMPARISON_EQUALS_LESS: {
+						if(m[1].number().floor()) {
+							m[1].numberUpdated();
+							m.setComparisonType(COMPARISON_EQUALS_LESS);
+							fix_inequalities(m, eo);
+							return true;
+						}
+						break;
+					}
+					case COMPARISON_GREATER: {}
+					case COMPARISON_EQUALS_GREATER: {
+						if(m[1].number().ceil()) {
+							m[1].numberUpdated();
+							m.setComparisonType(COMPARISON_EQUALS_GREATER);
+							fix_inequalities(m, eo);
+							return true;
+						}
+						break;
+					}
+					default: {}
+				}
+			}
+		}
+	} else if(m.isLogicalOr()) {
+		if(m.size() == 2 && m[0].isComparison() && m[1].isComparison() && ((m[0].comparisonType() == COMPARISON_EQUALS_LESS && m[1].comparisonType() == COMPARISON_EQUALS_GREATER) || (m[1].comparisonType() == COMPARISON_EQUALS_LESS && m[0].comparisonType() == COMPARISON_EQUALS_GREATER)) && m[0][0].representsInteger() && m[1][0].representsInteger() && m[0][1].isInteger() && m[1][1].isInteger() && m[1][1].number() == m[0][1].number() + (m[0].comparisonType() == COMPARISON_EQUALS_LESS ? 1 : -1)) {
+			m.set(1, 1, 0, true);
+			return true;
+		}
+	} else if(m.isFunction()) {
+		return false;
+	}
+	bool b_ret = false;
+	for(size_t i = 0; i < m.size(); i++) {
+		if(fix_inequalities(m[i], eo)) b_ret = true;
+	}
+	if(b_ret) {
+		m.childrenUpdated();
+		m.calculatesub(eo, eo, false);
+	}
+	return b_ret;
+}
+
 MathStructure &MathStructure::eval(const EvaluationOptions &eo) {
 
 	if(m_type == STRUCT_NUMBER) {FORMAT_COMPLEX_NUMBERS; return *this;}
@@ -2849,6 +2990,8 @@ MathStructure &MathStructure::eval(const EvaluationOptions &eo) {
 			if(containsType(STRUCT_ADDITION, false) == 1 && eo.do_polynomial_division) do_simplification(*this, eo2, true, eo.structuring == STRUCTURING_NONE || eo.structuring == STRUCTURING_FACTORIZE, false, true, true);
 		}
 	}
+
+	if(eo.test_comparisons && containsType(STRUCT_UNIT, false, true, true) <= 0) fix_inequalities(*this, eo);
 
 	simplify_functions(*this, eo2, feo);
 

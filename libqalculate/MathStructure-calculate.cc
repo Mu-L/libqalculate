@@ -4710,9 +4710,7 @@ int MathStructure::merge_logical_or(MathStructure &mstruct, const EvaluationOpti
 							break;
 						}
 						case COMPARISON_EQUALS_LESS: {
-							if(ct2 == COMPARISON_EQUALS_GREATER && CHILD(0).representsInteger() && CHILD(1).isInteger() && mstruct[1].isInteger() && ((cr == COMPARISON_RESULT_LESS && CHILD(1).number() + 1 == mstruct[1].number()) || (cr == COMPARISON_RESULT_GREATER && CHILD(1).number() - 1 == mstruct[1].number()))) {
-								set(1, 1, 0, true); MERGE_APPROX_AND_PREC(mstruct) return 1;
-							} else if(ct2 == COMPARISON_EQUALS && CHILD(0).representsInteger() && CHILD(1).isInteger() && mstruct[1].isInteger() && ((cr == COMPARISON_RESULT_LESS && CHILD(1).number() + 1 == mstruct[1].number()) || (cr == COMPARISON_RESULT_GREATER && CHILD(1).number() - 1 == mstruct[1].number()))) {
+							if(ct2 == COMPARISON_EQUALS && CHILD(0).representsInteger() && CHILD(1).isInteger() && mstruct[1].isInteger() && ((cr == COMPARISON_RESULT_LESS && CHILD(1).number() + 1 == mstruct[1].number()) || (cr == COMPARISON_RESULT_GREATER && CHILD(1).number() - 1 == mstruct[1].number()))) {
 								set_nocopy(mstruct, true);
 								setComparisonType(cr == COMPARISON_RESULT_LESS ? ct1 : COMPARISON_EQUALS_GREATER);
 								return 1;
@@ -6063,21 +6061,7 @@ bool MathStructure::calculatesub(const EvaluationOptions &eo, const EvaluationOp
 			}
 			if(b) break;
 			if(!CHILD(0).isNumber() && CHILD(1).isNumber() && CHILD(0).representsInteger() && CHILD(1).number().isReal()) {
-				if(CHILD(1).number().isInteger()) {
-					if(ct_comp == COMPARISON_LESS) {
-						if(CHILD(1).number().subtract(1)) {
-							b = true;
-							ct_comp = COMPARISON_EQUALS_LESS;
-							calculatesub(eo, feo, false, mparent, index_this);
-						}
-					} else if(ct_comp == COMPARISON_GREATER) {
-						if(CHILD(1).number().add(1)) {
-							b = true;
-							ct_comp = COMPARISON_EQUALS_GREATER;
-							calculatesub(eo, feo, false, mparent, index_this);
-						}
-					}
-				} else if(CHILD(1).number().isNonInteger()) {
+				if(CHILD(1).number().isNonInteger()) {
 					switch(ct_comp) {
 						case COMPARISON_EQUALS: {
 							clear(true);
@@ -6089,26 +6073,7 @@ bool MathStructure::calculatesub(const EvaluationOptions &eo, const EvaluationOp
 							b = true;
 							break;
 						}
-						case COMPARISON_LESS: {}
-						case COMPARISON_EQUALS_LESS: {
-							if(CHILD(1).number().floor()) {
-								CHILD(1).numberUpdated();
-								b = true;
-								ct_comp = COMPARISON_EQUALS_LESS;
-								calculatesub(eo, feo, false, mparent, index_this);
-							}
-							break;
-						}
-						case COMPARISON_GREATER: {}
-						case COMPARISON_EQUALS_GREATER: {
-							if(CHILD(1).number().ceil()) {
-								CHILD(1).numberUpdated();
-								b = true;
-								ct_comp = COMPARISON_EQUALS_GREATER;
-								calculatesub(eo, feo, false, mparent, index_this);
-							}
-							break;
-						}
+						default: {}
 					}
 				}
 				if(b) break;

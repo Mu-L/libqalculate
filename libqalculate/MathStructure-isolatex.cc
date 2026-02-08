@@ -5995,7 +5995,11 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 				return true;
 			} else if(CHILD(0).function()->id() == FUNCTION_ID_ABS && CHILD(0).size() == 1) {
 				if(CHILD(0)[0].contains(x_var)) {
-					if(CHILD(1).representsComplex() && (ct_comp == COMPARISON_EQUALS || ct_comp == COMPARISON_NOT_EQUALS)) {
+					if(CHILD(1).isZero() && (ct_comp == COMPARISON_EQUALS || ct_comp == COMPARISON_NOT_EQUALS)) {
+						CHILD(0).setToChild(1, true);
+						isolate_x_sub(eo, eo2, x_var, morig, depth + 1);
+						return true;
+					} else if(CHILD(1).representsComplex() && (ct_comp == COMPARISON_EQUALS || ct_comp == COMPARISON_NOT_EQUALS)) {
 						if(ct_comp == COMPARISON_EQUALS) clear(true);
 						else set(1, 1, 0, true);
 						return true;
@@ -6006,6 +6010,28 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 					} else if((ct_comp == COMPARISON_LESS || ct_comp == COMPARISON_EQUALS_GREATER) && CHILD(1).representsNonPositive()) {
 						if(ct_comp == COMPARISON_LESS) clear(true);
 						else set(1, 1, 0, true);
+						return true;
+					} else if(ct_comp == COMPARISON_EQUALS_LESS) {
+						CHILD(0).setToChild(1, true);
+						MathStructure *malt = new MathStructure(*this);
+						(*malt)[1].calculateNegate(eo2);
+						malt->childUpdated(2);
+						malt->setComparisonType(COMPARISON_EQUALS_GREATER);
+						isolate_x(eo, eo2, x_var, false, depth + 1);
+						malt->isolate_x(eo, eo2, x_var, false, depth + 1);
+						add_nocopy(malt, OPERATION_LOGICAL_AND, true);
+						calculatesub(eo2, eo, false);
+						return true;
+					} else if(ct_comp == COMPARISON_EQUALS_GREATER) {
+						CHILD(0).setToChild(1, true);
+						MathStructure *malt = new MathStructure(*this);
+						(*malt)[1].calculateNegate(eo2);
+						malt->childUpdated(2);
+						malt->setComparisonType(COMPARISON_EQUALS_LESS);
+						isolate_x(eo, eo2, x_var, false, depth + 1);
+						malt->isolate_x(eo, eo2, x_var, false, depth + 1);
+						add_nocopy(malt, OPERATION_LOGICAL_OR, true);
+						calculatesub(eo2, eo, false);
 						return true;
 					} else if(CHILD(1).representsReal(true)) {
 						if(CHILD(0)[0].representsReal(true)) {

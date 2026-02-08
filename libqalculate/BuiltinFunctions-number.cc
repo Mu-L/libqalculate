@@ -285,6 +285,11 @@ int AbsFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, c
 			return 1;
 		}
 	}
+	if(has_predominately_negative_sign(mstruct)) {
+		negate_struct(mstruct);
+		mstruct.transform(this);
+		return 1;
+	}
 	return -1;
 }
 GcdFunction::GcdFunction() : MathFunction("gcd", 2, -1) {

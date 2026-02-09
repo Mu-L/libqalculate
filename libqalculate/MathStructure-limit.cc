@@ -297,6 +297,7 @@ bool contains_zero(const MathStructure &mstruct) {
 bool limit_contains_undefined(const MathStructure &mstruct) {
 	bool b_zero = false, b_infinity = false;
 	if(mstruct.isPower() && mstruct[0].isNumber() && ((!mstruct[0].number().isNonZero() && mstruct[1].representsNegative()) || mstruct[1].containsInfinity(true))) return true;
+	if(mstruct.isUndefined()) return true;
 	for(size_t i = 0; i < mstruct.size(); i++) {
 		if(limit_contains_undefined(mstruct[i])) return true;
 		if(contains_zero(mstruct[i])) {
@@ -873,106 +874,111 @@ bool calculate_limit_sub(MathStructure &mstruct, const MathStructure &x_var, con
 						mstruct[1] = mbak[1];
 					}
 				}
-			} else if(mstruct[0].isNumber() && !mstruct[0].number().isNonZero() && mstruct[1].representsNegative() && mbak[0].contains(x_var, true) > 0) {
-				bool b_test = true;
-				int i_sgn = 0;
-				if(mstruct[0].number().isInterval(false) && (mstruct[0].number().hasImaginaryPart() || !mstruct[1].isNumber())) {
-					b_test = false;
-				}
-				if(b_test && ((mbak[0].isFunction() && mbak[0].function()->id() == FUNCTION_ID_ABS) || mstruct[1].representsEven())) {
-					i_sgn = 1;
-					b_test = false;
-				} else if(b_test) {
-					if(mstruct[0].number().isInterval(false) && !mstruct[0].number().isNonNegative() && !mstruct[0].number().isNonPositive()) {
+			} else if(mstruct[0].isNumber() && !mstruct[0].number().isNonZero()) {
+				if(mstruct[1].representsNegative() && mbak[0].contains(x_var, true) > 0) {
+					bool b_test = true;
+					int i_sgn = 0;
+					if(mstruct[0].number().isInterval(false) && (mstruct[0].number().hasImaginaryPart() || !mstruct[1].isNumber())) {
 						b_test = false;
-					} else {
-						MathStructure mpow(mbak[0]);
-						if(mstruct[1].isMinusOne()) {
-							MathStructure mfac(mpow);
-							mfac.factorize(eo, false, false, 0, false, false, NULL, m_undefined, false, true);
-							if(mfac.isPower() && mfac[1].representsEven()) {
-								i_sgn = 1;
-								b_test = false;
-							}
+					}
+					if(b_test && ((mbak[0].isFunction() && mbak[0].function()->id() == FUNCTION_ID_ABS) || mstruct[1].representsEven())) {
+						i_sgn = 1;
+						b_test = false;
+					} else if(b_test) {
+						if(mstruct[0].number().isInterval(false) && !mstruct[0].number().isNonNegative() && !mstruct[0].number().isNonPositive()) {
+							b_test = false;
 						} else {
-							mpow ^= mstruct[1];
-							mpow.last().calculateNegate(eo);
-						}
-						if(b_test) {
-							MathStructure mdiff(mpow);
-							if(mdiff.differentiate(x_var, eo) && !contains_diff_for(mdiff, x_var)) {
-								mdiff.replace(x_var, nr_limit);
-								CALCULATOR->beginTemporaryStopMessages();
-								mdiff.eval(eo);
-								if(!CALCULATOR->endTemporaryStopMessages()) {
-									if(mdiff.representsPositive()) {
-										b_test = false;
-										if(approach_direction > 0) i_sgn = 1;
-										else if(approach_direction < 0) i_sgn = -1;
-									} else if(mdiff.representsNegative()) {
-										b_test = false;
-										if(approach_direction > 0) i_sgn = -1;
-										else if(approach_direction < 0) i_sgn = 1;
-									}
+							MathStructure mpow(mbak[0]);
+							if(mstruct[1].isMinusOne()) {
+								MathStructure mfac(mpow);
+								mfac.factorize(eo, false, false, 0, false, false, NULL, m_undefined, false, true);
+								if(mfac.isPower() && mfac[1].representsEven()) {
+									i_sgn = 1;
+									b_test = false;
 								}
+							} else {
+								mpow ^= mstruct[1];
+								mpow.last().calculateNegate(eo);
 							}
 							if(b_test) {
-								MathStructure mtestn(nr_limit);
-								if(eo.approximation != APPROXIMATION_EXACT) {
-									EvaluationOptions eo2 = eo;
-									eo2.approximation = APPROXIMATION_APPROXIMATE;
-									mtestn.eval(eo2);
-								}
-								if(mtestn.isNumber() && mtestn.number().isReal()) {
-									for(int i = 10; i < 20; i++) {
-										if(approach_direction == 0 || (i % 2 == (approach_direction < 0))) {
-											Number nr_test(i % 2 == 0 ? 1 : -1, 1, -(i / 2));
-											if(!mtestn.number().isZero()) {
-												nr_test++;
-												if(!nr_test.multiply(mtestn.number())) {i_sgn = 0; break;}
-											}
-											MathStructure mtest(mpow);
-											mtest.replace(x_var, nr_test);
-											CALCULATOR->beginTemporaryStopMessages();
-											mtest.eval(eo);
-											if(CALCULATOR->endTemporaryStopMessages()) {i_sgn = 0; break;}
-											int new_sgn = 0;
-											if(mtest.representsPositive()) new_sgn = 1;
-											else if(mtest.representsNegative()) new_sgn = -1;
-											if(new_sgn != 0 || mtest.isNumber()) {
-												if(new_sgn == 0 || (i_sgn != 0 && i_sgn != new_sgn)) {i_sgn = 0; break;}
-												i_sgn = new_sgn;
-											}
+								MathStructure mdiff(mpow);
+								if(mdiff.differentiate(x_var, eo) && !contains_diff_for(mdiff, x_var)) {
+									mdiff.replace(x_var, nr_limit);
+									CALCULATOR->beginTemporaryStopMessages();
+									mdiff.eval(eo);
+									if(!CALCULATOR->endTemporaryStopMessages()) {
+										if(mdiff.representsPositive()) {
+											b_test = false;
+											if(approach_direction > 0) i_sgn = 1;
+											else if(approach_direction < 0) i_sgn = -1;
+										} else if(mdiff.representsNegative()) {
+											b_test = false;
+											if(approach_direction > 0) i_sgn = -1;
+											else if(approach_direction < 0) i_sgn = 1;
 										}
-										if(CALCULATOR->aborted()) {i_sgn = 0; break;}
+									}
+								}
+								if(b_test) {
+									MathStructure mtestn(nr_limit);
+									if(eo.approximation != APPROXIMATION_EXACT) {
+										EvaluationOptions eo2 = eo;
+										eo2.approximation = APPROXIMATION_APPROXIMATE;
+										mtestn.eval(eo2);
+									}
+									if(mtestn.isNumber() && mtestn.number().isReal()) {
+										for(int i = 10; i < 20; i++) {
+											if(approach_direction == 0 || (i % 2 == (approach_direction < 0))) {
+												Number nr_test(i % 2 == 0 ? 1 : -1, 1, -(i / 2));
+												if(!mtestn.number().isZero()) {
+													nr_test++;
+													if(!nr_test.multiply(mtestn.number())) {i_sgn = 0; break;}
+												}
+												MathStructure mtest(mpow);
+												mtest.replace(x_var, nr_test);
+												CALCULATOR->beginTemporaryStopMessages();
+												mtest.eval(eo);
+												if(CALCULATOR->endTemporaryStopMessages()) {i_sgn = 0; break;}
+												int new_sgn = 0;
+												if(mtest.representsPositive()) new_sgn = 1;
+												else if(mtest.representsNegative()) new_sgn = -1;
+												if(new_sgn != 0 || mtest.isNumber()) {
+													if(new_sgn == 0 || (i_sgn != 0 && i_sgn != new_sgn)) {i_sgn = 0; break;}
+													i_sgn = new_sgn;
+												}
+											}
+											if(CALCULATOR->aborted()) {i_sgn = 0; break;}
+										}
 									}
 								}
 							}
 						}
 					}
-				}
-				if(i_sgn != 0) {
-					if(mstruct[0].number().isInterval()) {
-						Number nr_pow = mstruct[1].number();
-						Number nr_high(mstruct[0].number());
-						if(nr_pow.negate() && nr_high.raise(nr_pow) && !nr_high.hasImaginaryPart()) {
-							if(nr_high.isNonNegative() && i_sgn > 0) nr_high = nr_high.upperEndPoint();
-							else if(nr_high.isNonPositive() && i_sgn < 0) nr_high = nr_high.lowerEndPoint();
-							if(nr_high.isNonZero() && nr_high.recip()) {
-								Number nr;
-								if(i_sgn > 0) nr.setInterval(nr_high, nr_plus_inf);
-								else if(i_sgn < 0) nr.setInterval(nr_minus_inf, nr_high);
-								mstruct.set(nr, true);
-								if(b_test) CALCULATOR->error(false, _("Limit for %s determined graphically."), format_and_print(mbak).c_str(), NULL);
-								break;
+					if(i_sgn != 0) {
+						if(mstruct[0].number().isInterval()) {
+							Number nr_pow = mstruct[1].number();
+							Number nr_high(mstruct[0].number());
+							if(nr_pow.negate() && nr_high.raise(nr_pow) && !nr_high.hasImaginaryPart()) {
+								if(nr_high.isNonNegative() && i_sgn > 0) nr_high = nr_high.upperEndPoint();
+								else if(nr_high.isNonPositive() && i_sgn < 0) nr_high = nr_high.lowerEndPoint();
+								if(nr_high.isNonZero() && nr_high.recip()) {
+									Number nr;
+									if(i_sgn > 0) nr.setInterval(nr_high, nr_plus_inf);
+									else if(i_sgn < 0) nr.setInterval(nr_minus_inf, nr_high);
+									mstruct.set(nr, true);
+									if(b_test) CALCULATOR->error(false, _("Limit for %s determined graphically."), format_and_print(mbak).c_str(), NULL);
+									break;
+								}
 							}
+						} else {
+							if(b_test) CALCULATOR->error(false, _("Limit for %s determined graphically."), format_and_print(mbak).c_str(), NULL);
+							if(i_sgn > 0) mstruct.set(nr_plus_inf, true);
+							else if(i_sgn < 0) mstruct.set(nr_minus_inf, true);
+							break;
 						}
-					} else {
-						if(b_test) CALCULATOR->error(false, _("Limit for %s determined graphically."), format_and_print(mbak).c_str(), NULL);
-						if(i_sgn > 0) mstruct.set(nr_plus_inf, true);
-						else if(i_sgn < 0) mstruct.set(nr_minus_inf, true);
-						break;
 					}
+				} else if(mstruct[1].isNumber() && !mstruct[1].number().isNonZero()) {
+					mstruct.setUndefined();
+					return false;
 				}
 			}
 			mstruct.childrenUpdated();

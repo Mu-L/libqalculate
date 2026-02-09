@@ -3917,7 +3917,7 @@ bool Number::raise(const Number &o, bool try_exact) {
 	if(isZero()) {
 		if(o.isZero()) {
 			//0^0
-			CALCULATOR->error(false, _("0^0 might be considered undefined"), NULL);
+			CALCULATOR->error(false, _("0^0 was assumed equal to 1, but might be considered undefined"), NULL);
 			set(1, 1, 0, true);
 			setPrecisionAndApproximateFrom(o);
 			return true;

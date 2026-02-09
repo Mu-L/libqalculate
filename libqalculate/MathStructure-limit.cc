@@ -323,7 +323,6 @@ bool calculate_limit_sub(MathStructure &mstruct, const MathStructure &x_var, con
 		return true;
 	}
 	if(!mstruct.contains(x_var, true)) return true;
-
 	switch(mstruct.type()) {
 		case STRUCT_MULTIPLICATION: {
 			for(size_t i = 0; i < mstruct.size(); i++) {
@@ -1037,7 +1036,7 @@ bool calculate_limit_sub(MathStructure &mstruct, const MathStructure &x_var, con
 				break;
 			}
 			mstruct.calculateFunctions(eo, true);
-			mstruct.calculatesub(eo, eo, false);
+			mstruct.calculatesub(eo, eo, true);
 			break;
 		}
 		default: {

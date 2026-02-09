@@ -399,7 +399,7 @@ int RootFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, 
 					}
 				}
 			}
-			if(vargs[1].number().isOdd() && has_predominately_negative_sign(mstruct)) {
+			if(vargs[1].number().isOdd() && has_predominately_negative_sign(mstruct) && mstruct.representsReal()) {
 				negate_struct(mstruct);
 				mstruct.transform(this);
 				mstruct.addChild(vargs[1]);

@@ -2832,7 +2832,7 @@ void MathStructure::formatsub(const PrintOptions &po, MathStructure *parent, siz
 					}
 				}
 			}
-			if((o_number.isNegative() || ((parent || po.interval_display != INTERVAL_DISPLAY_SIGNIFICANT_DIGITS) && o_number.isInterval() && o_number.isNonPositive())) && (po.base != BASE_CUSTOM || !CALCULATOR->customOutputBase().isNegative()) && (po.base > BASE_FP16 || po.base < BASE_FP80) && (po.base < BASE_LATITUDE || po.base > BASE_LONGITUDE_2) && po.rounding != ROUNDING_UP && po.rounding != ROUNDING_DOWN && po.rounding != ROUNDING_HALF_UP && po.rounding != ROUNDING_HALF_DOWN) {
+			if((o_number.isNegative() || ((parent || po.interval_display != INTERVAL_DISPLAY_SIGNIFICANT_DIGITS) && o_number.isInterval() && o_number.isNonPositive())) && (po.base != BASE_CUSTOM || !CALCULATOR->customOutputBase().isNegative()) && (po.base > BASE_FP16 || po.base < BASE_FP80) && (po.base < BASE_LATITUDE || po.base > BASE_LONGITUDE_2) && ((po.rounding != ROUNDING_UP && po.rounding != ROUNDING_DOWN && po.rounding != ROUNDING_HALF_UP && po.rounding != ROUNDING_HALF_DOWN) || o_number.isInteger())) {
 				if((((po.base != 2 || !po.twos_complement) && (po.base != 16 || !po.hexadecimal_twos_complement)) || !o_number.isInteger()) && (!o_number.isMinusInfinity() || (parent && parent->isAddition()))) {
 					// a=-(-a), if a is a negative number (or a is interval from negative value to 0), and not using two's complement and not using negative number base
 					o_number.negate();

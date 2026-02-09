@@ -788,6 +788,14 @@ int SignumFunction::calculate(MathStructure &mstruct, const MathStructure &vargs
 		mstruct.childrenUpdated();
 		return 1;
 	}
+	if(mstruct.isPower() && mstruct[1].representsReal() && (vargs.size() == 1 || vargs[1].isZero())) {
+		mstruct[0].transform(this);
+		if(vargs.size() > 1) mstruct[0].addChild(vargs[1]);
+		if(mstruct[1].representsOdd()) mstruct.setToChild(1, true);
+		else if(mstruct[1].representsEven()) {mstruct[0][0].transformById(FUNCTION_ID_ABS); mstruct.setToChild(1, true);}
+		else mstruct.childrenUpdated();
+		return 1;
+	}
 	if(vargs.size() > 1 && mstruct.isZero()) {
 		mstruct.set(vargs[1], true);
 		return 1;
@@ -801,6 +809,13 @@ int SignumFunction::calculate(MathStructure &mstruct, const MathStructure &vargs
 			mstruct.set(-1, 1, 0);
 			return 1;
 		}
+	}
+	if(has_predominately_negative_sign(mstruct)) {
+		negate_struct(mstruct);
+		mstruct.transform(this);
+		if(vargs.size() > 1) mstruct.addChild(vargs[1]);
+		mstruct.negate();
+		return 1;
 	}
 	return -1;
 }

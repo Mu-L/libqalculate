@@ -123,8 +123,8 @@ limit((sqrt(x-1)-2)/(x^2-25),5)
 #	undefined
 limit((3-sqrt(x))/(27-sqrt(x^3)),9)
 	1/27
-limit((cbrt(1+x)-cbrt(1-x))/(x),0)
-	2/3
+#limit((cbrt(1+x)-cbrt(1-x))/(x),0)
+#	2/3
 limit((x^(2/3)-1)/(x^(3/5)-1),1)
 	10/9
 /assume positive

@@ -399,6 +399,13 @@ int RootFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, 
 					}
 				}
 			}
+			if(vargs[1].number().isOdd() && has_predominately_negative_sign(mstruct)) {
+				negate_struct(mstruct);
+				mstruct.transform(this);
+				mstruct.addChild(vargs[1]);
+				mstruct.negate();
+				return 1;
+			}
 			return -1;
 		}
 		nr = mstruct.number();

@@ -329,7 +329,7 @@ int BesselyFunction::calculate(MathStructure &mstruct, const MathStructure &varg
 	FR_FUNCTION_2Rm(bessely)
 }
 ErfFunction::ErfFunction() : MathFunction("erf", 1) {
-	setArgumentDefinition(1, new NumberArgument("", ARGUMENT_MIN_MAX_NONE, true, false));
+	setArgumentDefinition(1, new NumberArgument("", ARGUMENT_MIN_MAX_NONE, false, false));
 }
 bool ErfFunction::representsPositive(const MathStructure &vargs, bool) const {return vargs.size() == 1 && vargs[0].representsPositive();}
 bool ErfFunction::representsNegative(const MathStructure &vargs, bool) const {return vargs.size() == 1 && vargs[0].representsNegative();}
@@ -346,19 +346,36 @@ bool ErfFunction::representsEven(const MathStructure&, bool) const {return false
 bool ErfFunction::representsOdd(const MathStructure&, bool) const {return false;}
 bool ErfFunction::representsUndefined(const MathStructure&) const {return false;}
 int ErfFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, const EvaluationOptions &eo) {
-	Number nr(vargs[0].number());
-	if(!nr.erf() || (eo.approximation == APPROXIMATION_EXACT && nr.isApproximate() && !vargs[0].isApproximate()) || (!eo.allow_complex && nr.isComplex() && !vargs[0].number().isComplex()) || (!eo.allow_infinite && nr.includesInfinity() && !vargs[0].number().includesInfinity())) {
-		if(vargs[0].number().hasImaginaryPart() && !vargs[0].number().hasRealPart()) {
-			mstruct = vargs[0].number().imaginaryPart();
-			MathFunction *f = CALCULATOR->getFunctionById(FUNCTION_ID_ERFI);
-			mstruct.transform(f);
-			mstruct *= nr_one_i;
-			return 1;
-		}
-		return 0;
+	if(vargs[0].isVector()) return 0;
+	mstruct = vargs[0];
+	int ret = 0;
+	if(!mstruct.isNumber()) {
+		mstruct.eval(eo);
+		if(mstruct.isVector()) return -1;
+		if(!mstruct.equals(vargs[0], true, true)) ret = -1;
 	}
-	mstruct.set(nr);
-	return 1;
+	if(mstruct.isNumber()) {
+		Number nr(mstruct.number());
+		if(!nr.erf() || (eo.approximation == APPROXIMATION_EXACT && nr.isApproximate() && !mstruct.isApproximate()) || (!eo.allow_complex && nr.isComplex() && !mstruct.number().isComplex()) || (!eo.allow_infinite && nr.includesInfinity() && !mstruct.number().includesInfinity())) {
+			if(mstruct.number().hasImaginaryPart() && !mstruct.number().hasRealPart()) {
+				mstruct = mstruct.number().imaginaryPart();
+				MathFunction *f = CALCULATOR->getFunctionById(FUNCTION_ID_ERFI);
+				mstruct.transform(f);
+				mstruct *= nr_one_i;
+				return 1;
+			}
+			return ret;
+		}
+		mstruct.set(nr);
+		return 1;
+	}
+	if(has_predominately_negative_sign(mstruct)) {
+		negate_struct(mstruct);
+		mstruct.transform(this);
+		mstruct.negate();
+		return 1;
+	}
+	return ret;
 }
 ErfiFunction::ErfiFunction() : MathFunction("erfi", 1) {
 	setArgumentDefinition(1, new NumberArgument("", ARGUMENT_MIN_MAX_NONE, true, false));

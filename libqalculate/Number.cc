@@ -3921,10 +3921,8 @@ bool Number::raise(const Number &o, bool try_exact) {
 			set(1, 1, 0, true);
 			setPrecisionAndApproximateFrom(o);
 			return true;
-		} else if(!o.realPartIsNonNegative()) {
+		} else if(!o.realPartIsNonNegative() || (o.hasImaginaryPart() && !o.realPartIsNonZero())) {
 			return false;
-		} else if(o.hasImaginaryPart()) {
-			CALCULATOR->error(false, _("The result of 0^i is possibly undefined"), NULL);
 		}
 		return true;
 	}

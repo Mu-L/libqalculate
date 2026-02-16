@@ -746,6 +746,7 @@ int LimitFunction::calculate(MathStructure &mstruct, const MathStructure &vargs,
 	mstruct = vargs[0];
 	EvaluationOptions eo2 = eo;
 	eo2.approximation = APPROXIMATION_EXACT;
+	CALCULATOR->error(false, _("%s() is incomplete and unreliable."), preferredDisplayName().name.c_str(), NULL);
 	if(mstruct.calculateLimit(vargs[2], vargs[1], eo2, vargs[3].number().intValue())) return 1;
 	CALCULATOR->error(true, _("Unable to find limit."), NULL);
 	return -1;

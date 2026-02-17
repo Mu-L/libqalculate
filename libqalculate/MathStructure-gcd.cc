@@ -1083,7 +1083,7 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 		} else {
 			while(divs.size() > 0) {
 				bool b = true;
-				if(!divs[0].isRationalPolynomial() || !nums[0].isRationalPolynomial()) {
+				if(!divs[0].isRationalPolynomial() || (!nums[0].isRationalPolynomial() && !nums[0].isZero())) {
 					if(mstruct.size() == 1) mstruct.setToChild(1);
 					return false;
 				}

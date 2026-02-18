@@ -636,6 +636,15 @@ bool fix_n_multiple(MathStructure &mstruct, const EvaluationOptions &eo, const E
 	return b_ret;
 }
 
+void collect_nonzero_checks(const MathStructure &m, MathStructure *mcheckpowers) {
+	if(m.isPower() && !m[1].representsNonNegative() && !m[0].representsNonZero()) {
+		mcheckpowers->addChild(m);
+	}
+	for(size_t i = 0; i < m.size(); i++) {
+		collect_nonzero_checks(m[i], mcheckpowers);
+	}
+}
+
 bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions &eo2, const MathStructure &x_var, MathStructure *morig) {
 	return isolate_x_sub(eo, eo2, x_var, morig, 0);
 }
@@ -3280,7 +3289,7 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 						}
 					}
 					if(!bdoit) break;
-					MathStructure *mcheckpowers = NULL;
+					MathStructure *mcheckpowers = new MathStructure();
 					ComparisonType ct_comp_bak = ct_comp;
 					setToChild(1);
 					if(ct_comp_bak == COMPARISON_NOT_EQUALS) {
@@ -3289,33 +3298,12 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 						setType(STRUCT_LOGICAL_OR);
 					}
 					MathStructure mbak(*this);
+					collect_nonzero_checks(*this, mcheckpowers);
 					for(size_t i = 0; i < SIZE;) {
 						if(CALCULATOR->aborted()) {
 							set(mbak);
 							if(mcheckpowers) mcheckpowers->unref();
 							return false;
-						}
-						if(checktype[i] > 0) {
-							MathStructure *mcheck = new MathStructure(CHILD(i)[0]);
-							if(ct_comp_bak == COMPARISON_NOT_EQUALS) mcheck->add(m_zero, OPERATION_EQUALS);
-							else mcheck->add(m_zero, OPERATION_NOT_EQUALS);
-							mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-							if(checktype[i] == 2) {
-								MathStructure *mexpcheck = new MathStructure(CHILD(i)[1]);
-								if(ct_comp_bak == COMPARISON_NOT_EQUALS) mexpcheck->add(m_zero, OPERATION_LESS);
-								else mexpcheck->add(m_zero, OPERATION_EQUALS_GREATER);
-								mexpcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-								if(ct_comp_bak == COMPARISON_NOT_EQUALS) mexpcheck->add_nocopy(mcheck, OPERATION_LOGICAL_AND, true);
-								else mexpcheck->add_nocopy(mcheck, OPERATION_LOGICAL_OR, true);
-								mexpcheck->calculatesub(eo2, eo, false);
-								mcheck = mexpcheck;
-							}
-							if(mcheckpowers) {
-								if(ct_comp_bak == COMPARISON_NOT_EQUALS) mcheckpowers->add_nocopy(mcheck, OPERATION_LOGICAL_OR, true);
-								else mcheckpowers->add_nocopy(mcheck, OPERATION_LOGICAL_AND, true);
-							} else {
-								mcheckpowers = mcheck;
-							}
 						}
 						if(checktype[i] == 1) {
 							ERASE(i)
@@ -3331,12 +3319,39 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 					if(SIZE == 1) setToChild(1);
 					else if(SIZE == 0) clear(true);
 					else calculatesub(eo2, eo, false);
-					if(mcheckpowers) {
-						mcheckpowers->calculatesub(eo2, eo, false);
+					if(mcheckpowers->size() > 0) {
+						for(size_t i = 0; i < mcheckpowers->size(); i++) {
+							MathStructure *mexpcheck = NULL;
+							if(!(*mcheckpowers)[i][1].representsNegative()) {
+								mexpcheck = new MathStructure((*mcheckpowers)[i][1]);
+								if(ct_comp_bak == COMPARISON_NOT_EQUALS) mexpcheck->add(m_zero, OPERATION_LESS);
+								else mexpcheck->add(m_zero, OPERATION_EQUALS_GREATER);
+								mexpcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+							}
+							(*mcheckpowers)[i].setToChild(1);
+							if(ct_comp_bak == COMPARISON_NOT_EQUALS) (*mcheckpowers)[i].add(m_zero, OPERATION_EQUALS);
+							else (*mcheckpowers)[i].add(m_zero, OPERATION_NOT_EQUALS);
+							(*mcheckpowers)[i].isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+							if(mexpcheck) {
+								if(ct_comp_bak == COMPARISON_NOT_EQUALS) (*mcheckpowers)[i].add_nocopy(mexpcheck, OPERATION_LOGICAL_AND, true);
+								else (*mcheckpowers)[i].add_nocopy(mexpcheck, OPERATION_LOGICAL_OR, true);
+								(*mcheckpowers)[i].calculatesub(eo2, eo, false);
+							}
+						}
+						if(mcheckpowers->size() == 1) {
+							mcheckpowers->setToChild(1);
+						} else {
+							if(ct_comp_bak == COMPARISON_NOT_EQUALS) mcheckpowers->setType(STRUCT_LOGICAL_OR);
+							else mcheckpowers->setType(STRUCT_LOGICAL_AND);
+							mcheckpowers->setToChild(1);
+							mcheckpowers->calculatesub(eo2, eo, false);
+						}
 						if(ct_comp_bak == COMPARISON_NOT_EQUALS) add_nocopy(mcheckpowers, OPERATION_LOGICAL_OR, true);
 						else add_nocopy(mcheckpowers, OPERATION_LOGICAL_AND, true);
 						SWAP_CHILDREN(0, SIZE - 1)
 						calculatesub(eo2, eo, false);
+					} else {
+						mcheckpowers->unref();
 					}
 					return true;
 				} else if(CHILD(0).size() >= 2) {

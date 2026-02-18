@@ -2331,11 +2331,12 @@ void MathStructure::formatsub(const PrintOptions &po, MathStructure *parent, siz
 
 	if(recursive) {
 		size_t first_neg_exp = SIZE;
-		if(m_type == STRUCT_MULTIPLICATION && po.place_units_separately && !po.negative_exponents && (!top_parent || !top_parent->containsUnknowns())) {
+		if(m_type == STRUCT_MULTIPLICATION && po.place_units_separately && !po.negative_exponents) {
 			// use negative exponents (instead of division) for units if fist unit has negative exponent (this should ordinarily mean that all subsequent units also has negative exponents)
 			for(size_t i = 0; i < SIZE; i++) {
 				if(CHILD(i).isUnit_exp()) {
 					if(!CHILD(i).isPower() || !CHILD(i)[1].hasNegativeSign()) break;
+					if(top_parent && top_parent->containsUnknowns()) break;
 					first_neg_exp = i;
 					break;
 				}

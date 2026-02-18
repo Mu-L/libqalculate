@@ -2409,6 +2409,7 @@ MathStructure Calculator::convert(const MathStructure &mstruct_to_convert, strin
 			mstruct.divide(munits);
 			eo2.sync_units = true;
 			eo2.keep_prefixes = false;
+			eo2.warn_about_denominators_assumed_nonzero = false;
 			mstruct.eval(eo2);
 			if((eo.auto_post_conversion == POST_CONVERSION_OPTIMAL || eo.auto_post_conversion == POST_CONVERSION_OPTIMAL_SI) && mstruct.containsType(STRUCT_UNIT, true)) {
 				mstruct.set(CALCULATOR->convertToOptimalUnit(mstruct, eo, false));

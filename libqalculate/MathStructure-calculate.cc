@@ -3945,55 +3945,68 @@ int MathStructure::merge_power(MathStructure &mstruct, const EvaluationOptions &
 					evalSort();
 				}
 				return 1;
-			} else if(mstruct.isMultiplication() && mstruct.size() > 1 && !isMultiplication()) {
-				// x^(a*b*...)
-				bool b = representsNonNegative(true);
-				if(!b) {
-					// all factors of the exponent must be integers
-					b = true;
-					for(size_t i = 0; i < mstruct.size(); i++) {
-						if(!mstruct[i].representsInteger()) {
-							b = false;
-							break;
+			} else if(mstruct.isMultiplication() && mstruct.size() > 1) {
+				if(!isMultiplication()) {
+					// x^(a*b*...)
+					bool b = representsNonNegative(true);
+					if(!b) {
+						// all factors of the exponent must be integers
+						b = true;
+						for(size_t i = 0; i < mstruct.size(); i++) {
+							if(!mstruct[i].representsInteger()) {
+								b = false;
+								break;
+							}
+						}
+					}
+					if(b) {
+						// try raising the base by each factor separately: x^(a*b*c*...)=(x^a)^(b*c*...))
+						MathStructure mthis(*this);
+						for(size_t i = 0; i < mstruct.size(); i++) {
+							if(i == 0) mthis.raise(mstruct[i]);
+							// exponent factor must be real and, if base is zero, positive
+							if(!mstruct[i].representsReal() || (isZero() && !mstruct[i].representsPositive())) continue;
+							if(i > 0) mthis[1] = mstruct[i];
+							EvaluationOptions eo2 = eo;
+							eo2.split_squares = false;
+							// avoid abs(x)^(2a) loop
+							if(mthis.calculateRaiseExponent(eo2)) {
+								if((mthis.isPower() && ((m_type == STRUCT_FUNCTION && o_function->id() == FUNCTION_ID_ABS && SIZE == 1 && CHILD(0).equals(mthis[0], true, true)) || (is_negation(mthis[0], *this))))) {
+									mthis = *this;
+									mthis.raise(m_zero);
+									continue;
+								}
+								bool b_calc = (m_type != STRUCT_NUMBER || !mstruct[i].isNumber() || mthis.isNumber());
+								set(mthis);
+								if(mstruct.size() == 2) {
+									if(i == 0) {
+										mstruct[1].ref();
+										raise_nocopy(&mstruct[1]);
+									} else {
+										mstruct[0].ref();
+										raise_nocopy(&mstruct[0]);
+									}
+								} else {
+									mstruct.ref();
+									raise_nocopy(&mstruct);
+									CHILD(1).delChild(i + 1);
+								}
+								if(b_calc) calculateRaiseExponent(eo);
+								MERGE_APPROX_AND_PREC(mstruct)
+								return 1;
+							}
 						}
 					}
 				}
-				if(b) {
-					// try raising the base by each factor separately: x^(a*b*c*...)=(x^a)^(b*c*...))
-					MathStructure mthis(*this);
-					for(size_t i = 0; i < mstruct.size(); i++) {
-						if(i == 0) mthis.raise(mstruct[i]);
-						// exponent factor must be real and, if base is zero, positive
-						if(!mstruct[i].representsReal() || (isZero() && !mstruct[i].representsPositive())) continue;
-						if(i > 0) mthis[1] = mstruct[i];
-						EvaluationOptions eo2 = eo;
-						eo2.split_squares = false;
-						// avoid abs(x)^(2a) loop
-						if(mthis.calculateRaiseExponent(eo2)) {
-							if((mthis.isPower() && ((m_type == STRUCT_FUNCTION && o_function->id() == FUNCTION_ID_ABS && SIZE == 1 && CHILD(0).equals(mthis[0], true, true)) || (is_negation(mthis[0], *this))))) {
-								mthis = *this;
-								mthis.raise(m_zero);
-								continue;
-							}
-							bool b_calc = (m_type != STRUCT_NUMBER || !mstruct[i].isNumber() || mthis.isNumber());
-							set(mthis);
-							if(mstruct.size() == 2) {
-								if(i == 0) {
-									mstruct[1].ref();
-									raise_nocopy(&mstruct[1]);
-								} else {
-									mstruct[0].ref();
-									raise_nocopy(&mstruct[0]);
-								}
-							} else {
-								mstruct.ref();
-								raise_nocopy(&mstruct);
-								CHILD(1).delChild(i + 1);
-							}
-							if(b_calc) calculateRaiseExponent(eo);
-							MERGE_APPROX_AND_PREC(mstruct)
-							return 1;
-						}
+				for(size_t i = 0; i < mstruct.size(); i++) {
+					if(mstruct[i].isPower() && mstruct[i][1].isMinusOne() && mstruct[i][0].isFunction() && mstruct[i][0].function()->id() == FUNCTION_ID_LOG && mstruct[i][0].size() == 1 && equals(mstruct[i][0][0])) {
+						// a^(b*ln(a)) = e^a
+						mstruct.delChild(i + 1, true);
+						set(CALCULATOR->getVariableById(VARIABLE_ID_E), true);
+						mstruct.ref();
+						raise_nocopy(&mstruct);
+						calculateRaiseExponent(eo);
+						return 1;
 					}
 				}
 			} else if(mstruct.isNumber() && mstruct.number().isRational() && !mstruct.number().isInteger() && !mstruct.number().numeratorIsOne() && !mstruct.number().numeratorIsMinusOne()) {
@@ -4050,6 +4063,10 @@ int MathStructure::merge_power(MathStructure &mstruct, const EvaluationOptions &
 					if(b) calculateRaiseExponent(eo);
 					return 1;
 				}
+			} else if(mstruct.isPower() && mstruct[1].isMinusOne() && mstruct[0].isFunction() && mstruct[0].function()->id() == FUNCTION_ID_LOG && mstruct[0].size() == 1 && equals(mstruct[0][0])) {
+				set(CALCULATOR->getVariableById(VARIABLE_ID_E), true);
+				MERGE_APPROX_AND_PREC(mstruct)
+				return 1;
 			}
 			break;
 		}
@@ -5396,7 +5413,15 @@ bool MathStructure::calculatesub(const EvaluationOptions &eo, const EvaluationOp
 		case STRUCT_POWER: {
 			if(recursive) {
 				CHILD(0).calculatesub(eo, feo, true, this, 0);
-				CHILD(1).calculatesub(eo, feo, true, this, 1);
+				if(CHILD(0).isZero() && CHILD(1).containsInfinity(false, true, false)) {
+					MathStructure mbak(CHILD(1));
+					CALCULATOR->beginTemporaryStopMessages();
+					CHILD(1).calculatesub(eo, feo, true, this, 1);
+					CALCULATOR->endTemporaryStopMessages(!CHILD(1).isZero());
+					if(CHILD(1).isZero()) CHILD(1).set(mbak);
+				} else {
+					CHILD(1).calculatesub(eo, feo, true, this, 1);
+				}
 				CHILDREN_UPDATED;
 			}
 			if(eo.sync_units && CHILD(0).isUnit() && CALCULATOR->getTemperatureCalculationMode() == TEMPERATURE_CALCULATION_RELATIVE && !CHILD(1).isOne()) {

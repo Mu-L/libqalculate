@@ -2620,53 +2620,63 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 			//complete the square
 			if(max_factor_degree != 0 && (term_combination_levels != 0 || complete_square)) {
 				if(only_integers) {
-					if(SIZE <= 3 && SIZE > 1) {
+					if(SIZE == 3 && CHILD(2).isNumber()) {
 						MathStructure *xvar = NULL;
-						Number nr2(1, 1);
-						if(CHILD(0).isPower() && CHILD(0)[0].size() == 0 && CHILD(0)[1].isNumber() && CHILD(0)[1].number().isTwo()) {
+						Number *nr2 = NULL, *nr1 = NULL, *exp = NULL;
+						if(CHILD(0).isPower() && CHILD(0)[0].size() == 0 && CHILD(0)[1].isNumber() && CHILD(0)[1].number().isRational() && CHILD(0)[1].number().isPositive()) {
 							xvar = &CHILD(0)[0];
+							exp = &CHILD(0)[1].number();
 						} else if(CHILD(0).isMultiplication() && CHILD(0).size() == 2 && CHILD(0)[0].isNumber()) {
 							if(CHILD(0)[1].isPower()) {
-								if(CHILD(0)[1][0].size() == 0 && CHILD(0)[1][1].isNumber() && CHILD(0)[1][1].number().isTwo()) {
+								if(CHILD(0)[1][0].size() == 0 && CHILD(0)[1][1].isNumber() && CHILD(0)[1][1].number().isRational() && CHILD(0)[1][1].number().isPositive()) {
 									xvar = &CHILD(0)[1][0];
-									nr2.set(CHILD(0)[0].number());
+									exp = &CHILD(0)[1][1].number();
+									nr2 = &CHILD(0)[0].number();
 								}
+							} else {
+								xvar = &CHILD(0)[1][0];
+								nr2 = &CHILD(0)[0].number();
 							}
+						} else {
+							xvar = &CHILD(0);
 						}
 						if(xvar) {
 							bool factorable = false;
-							Number nr1, nr0;
-							if(SIZE == 2 && CHILD(1).isNumber()) {
-								factorable = true;
-								nr0 = CHILD(1).number();
-							} else if(SIZE == 3 && CHILD(2).isNumber()) {
-								nr0 = CHILD(2).number();
-								if(CHILD(1).isMultiplication()) {
-									if(CHILD(1).size() == 2 && CHILD(1)[0].isNumber() && xvar->equals(CHILD(1)[1])) {
-										nr1 = CHILD(1)[0].number();
-										factorable = true;
+							if(CHILD(1).isMultiplication()) {
+								if(CHILD(1).size() == 2 && CHILD(1)[0].isNumber()) {
+									if(exp && exp->isTwo()) {
+										if(xvar->equals(CHILD(1)[1])) factorable = true;
+									} else if(CHILD(1)[1].isPower() && xvar->equals(CHILD(1)[1][0])) {
+										if(exp && CHILD(1)[1][1].equals((*exp) / 2)) factorable = true;
+										else if(!exp && CHILD(1)[1][1].equals(nr_half)) factorable = true;
 									}
-								} else if(xvar->equals(CHILD(1))) {
-									nr1.set(1, 1, 0);
-									factorable = true;
+									nr1 = &CHILD(1)[0].number();
 								}
+							} else if(exp && exp->isTwo()) {
+								if(xvar->equals(CHILD(1))) factorable = true;
+							} else if(CHILD(1).isPower() && xvar->equals(CHILD(1)[0])) {
+								if(exp && CHILD(1)[1].equals((*exp) / 2)) factorable = true;
+								else if(!exp && CHILD(1)[1].equals(nr_half)) factorable = true;
 							}
-							if(factorable && !nr2.isZero() && !nr1.isZero()) {
-								Number nrh(nr1);
+							if(factorable) {
+								Number nrh(nr1 ? *nr1 : nr_one);
 								nrh /= 2;
-								nrh /= nr2;
+								if(nr2) nrh /= *nr2;
 								if(nrh.isInteger()) {
 									Number nrk(nrh);
 									if(nrk.square()) {
-										nrk *= nr2;
+										if(nr2) nrk *= *nr2;
 										nrk.negate();
-										nrk += nr0;
-										set(MathStructure(*xvar), true);
-										add(nrh);
-										raise(nr_two);
-										if(!nr2.isOne()) multiply(nr2);
-										if(!nrk.isZero()) add(nrk);
-										evalSort(true);
+										nrk += CHILD(2).number();
+										MathStructure mnew(*xvar);
+										if(!exp) mnew.raise(nr_half);
+										else if(!exp->isTwo()) mnew.raise((*exp) / 2);
+										mnew.add(nrh);
+										mnew.raise(nr_two);
+										if(nr2) mnew.multiply(*nr2);
+										if(!nrk.isZero()) mnew.add(nrk);
+										mnew.evalSort(true);
+										set_nocopy(mnew, true);
 										return true;
 									}
 								}

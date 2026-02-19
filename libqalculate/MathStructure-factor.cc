@@ -712,22 +712,15 @@ bool factorize_find_multiplier(const MathStructure &mstruct, MathStructure &mnew
 									cmp_mstruct = &mstruct[i2];
 								}
 								if(cmp_mstruct->equals(*bas)) {
-									if(exp) {
+									if(exp && !exp->number().isFraction()) {
 										exp = NULL;
 									}
 									b = true;
-									break;
 								} else if(cmp_mstruct->isPower() && IS_REAL((*cmp_mstruct)[1]) && cmp_mstruct->base()->equals(*bas)) {
-									if(exp) {
-										if(cmp_mstruct->exponent()->number().isLessThan(exp->number())) {
-											exp = cmp_mstruct->exponent();
-										}
-										b = true;
-										break;
-									} else {
-										b = true;
-										break;
+									if(cmp_mstruct->exponent()->number().isLessThan(exp ? exp->number() : nr_one)) {
+										exp = cmp_mstruct->exponent();
 									}
+									b = true;
 								}
 								if(!mstruct[i2].isMultiplication()) {
 									break;
@@ -762,22 +755,11 @@ bool factorize_find_multiplier(const MathStructure &mstruct, MathStructure &mnew
 									}
 									cmp_mstruct = &factor_mstruct[i3];
 									if(cmp_mstruct->equals(factor_mstruct.last())) {
-										if(exp) {
-											exp = NULL;
-										}
 										b = true;
 										break;
 									} else if(cmp_mstruct->isPower() && IS_REAL((*cmp_mstruct)[1]) && cmp_mstruct->base()->equals(factor_mstruct.last())) {
-										if(exp) {
-											if(cmp_mstruct->exponent()->number().isLessThan(exp->number())) {
-												exp = cmp_mstruct->exponent();
-											}
-											b = true;
-											break;
-										} else {
-											b = true;
-											break;
-										}
+										b = true;
+										break;
 									}
 									i3++;
 								}
@@ -911,6 +893,11 @@ bool factorize_find_multiplier(const MathStructure &mstruct, MathStructure &mnew
 											if(mfactor->equals(mnew[i2][i3])) {
 												mnew[i2].delChild(i3 + 1);
 												b = false;
+											} else if(mfactor->isPower() && IS_REAL((*mfactor)[1]) && mfactor->base()->equals(mnew[i2][i3])) {
+												mnew[i2][i3].raise(nr_one - mfactor->exponent()->number());
+												mnew[i2].childUpdated(i3 + 1);
+												mnew.childUpdated(i2 + 1);
+												b = false;
 											}
 										}
 									}
@@ -934,6 +921,8 @@ bool factorize_find_multiplier(const MathStructure &mstruct, MathStructure &mnew
 									mnew[i2].transform(STRUCT_MULTIPLICATION);
 									mnew[i2].insertChild(MathStructure(1, 1, 0), 1);
 									mnew[i2][0].number() /= mfactor->number();
+								} else if(mfactor->isPower() && IS_REAL((*mfactor)[1]) && mfactor->base()->equals(mnew[i2])) {
+									mnew[i2].raise(nr_one - mfactor->exponent()->number());
 								} else {
 									mnew[i2].set(m_one);
 								}

@@ -736,14 +736,99 @@ Number dos_count_points(const MathStructure &m, bool b_unknown) {
 	return nr;
 }
 
-void replace_fracpow(MathStructure &mstruct, vector<UnknownVariable*> &uv, bool b_top = true) {
+void find_lcm_powden(const MathStructure &mstruct, const MathStructure &mbase, Number &nr) {
+	if(mstruct.isFunction()) return;
+	if(mstruct.isPower() && mstruct[0] == mbase && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[1].number().denominator() != nr) {
+		nr.lcm(mstruct[1].number().denominator());
+	}
+	for(size_t i = 0; i < mstruct.size(); i++) {
+		find_lcm_powden(mstruct[i], mbase, nr);
+	}
+}
+void replace_lcm_powden(MathStructure &mstruct, UnknownVariable *var) {
+	if(mstruct.isFunction()) return;
+	if(mstruct.isPower() && mstruct[0] == var->interval()[0] && mstruct[1].isNumber() && mstruct[1].number().isRational()) {
+		if(mstruct[1] == var->interval()[1]) {
+			mstruct.set(var, true);
+		} else {
+			mstruct[0].set(var, true);
+			mstruct[1].number().divide(var->interval()[1].number());
+		}
+		return;
+	} else if(mstruct == var->interval()[0]) {
+		mstruct.set(var, true);
+		mstruct.raise(m_one);
+		mstruct[1].number().divide(var->interval()[1].number());
+		return;
+	}
+	for(size_t i = 0; i < mstruct.size(); i++) {
+		replace_lcm_powden(mstruct[i], var);
+	}
+}
+void replace_fracpow(MathStructure &mstruct, vector<UnknownVariable*> &uv, MathStructure *top_mstruct) {
+	if(mstruct.isFunction()) return;
+	if(top_mstruct && mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isRationalPolynomial() && mstruct[1].number().denominatorIsLessThan(5)) {
+		Number nr(mstruct[1].number().denominator());
+		find_lcm_powden(*top_mstruct, mstruct[0], nr);
+		MathStructure mvar(mstruct[0]);
+		nr.recip();
+		mvar.raise(nr);
+		UnknownVariable *var = new UnknownVariable("", string(LEFT_PARENTHESIS) + format_and_print(mvar) + RIGHT_PARENTHESIS);
+		var->setInterval(mvar);
+		uv.push_back(var);
+		replace_lcm_powden(*top_mstruct, var);
+		return;
+	}
+	for(size_t i = 0; i < mstruct.size(); i++) {
+		replace_fracpow(mstruct[i], uv, top_mstruct ? top_mstruct : &mstruct);
+	}
+}
+bool restore_fracpow(MathStructure &mstruct, UnknownVariable *uv, const EvaluationOptions &eo, bool b_eval) {
+	bool b_ret = false;
+	if(mstruct.isPower() && mstruct[0].isVariable() && mstruct[0].variable() == uv && mstruct[1].isNumber()) {
+		mstruct[0].set(uv->interval(), true);
+		mstruct[0][1].number() *= mstruct[1].number();
+		mstruct.setToChild(1, true);
+		if(mstruct[1].number().isOne()) mstruct.setToChild(1, true);
+		else if(mstruct[0].isNumber()) mstruct.calculateRaiseExponent(eo);
+		return true;
+	} else if(mstruct.isVariable() && mstruct.variable() == uv) {
+		mstruct.set(uv->interval(), true);
+		return true;
+	}
+	for(size_t i = 0; i < mstruct.size(); i++) {
+		b_ret = restore_fracpow(mstruct[i], uv, eo, b_eval) || b_ret;
+	}
+	if(b_ret && b_eval) return mstruct.calculatesub(eo, eo, false);
+	return false;
+}
+bool contains_replace_fracpow_var(const MathStructure &mstruct) {
+	if(mstruct.isVariable() && !mstruct.variable()->isKnown() && ((UnknownVariable*) mstruct.variable())->interval().isPower()) return true;
+	for(size_t i = 0; i < mstruct.size(); i++) {
+		if(contains_replace_fracpow_var(mstruct[i])) return true;
+	}
+	return false;
+}
+bool test_replace_fracpow(const MathStructure &mstruct, bool top) {
+	if(mstruct.isFunction()) return false;
+	if(top && contains_replace_fracpow_var(mstruct)) return false;
+	if(!top && mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isRationalPolynomial() && mstruct[1].number().denominatorIsLessThan(5)) {
+		return true;
+	}
+	for(size_t i = 0; i < mstruct.size(); i++) {
+		if(test_replace_fracpow(mstruct[i], false)) return true;
+	}
+	return false;
+}
+
+void replace_fracpow2(MathStructure &mstruct, vector<UnknownVariable*> &uv, bool b_top = true) {
 	if(mstruct.isFunction()) return;
 	if(!b_top && mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isRationalPolynomial()) {
 		if(!mstruct[1].number().numeratorIsOne()) {
 			Number num(mstruct[1].number().numerator());
 			mstruct[1].number().divide(num);
 			mstruct.raise(num);
-			replace_fracpow(mstruct[0], uv, false);
+			replace_fracpow2(mstruct[0], uv, false);
 			return;
 		}
 		for(size_t i = 0; i < uv.size(); i++) {
@@ -759,29 +844,8 @@ void replace_fracpow(MathStructure &mstruct, vector<UnknownVariable*> &uv, bool 
 		return;
 	}
 	for(size_t i = 0; i < mstruct.size(); i++) {
-		replace_fracpow(mstruct[i], uv, false);
+		replace_fracpow2(mstruct[i], uv, false);
 	}
-}
-bool restore_fracpow(MathStructure &mstruct, UnknownVariable *uv, const EvaluationOptions &eo, bool b_eval) {
-	if(mstruct.isPower() && mstruct[0].isVariable() && mstruct[0].variable() == uv && mstruct[1].isInteger()) {
-		mstruct[0].set(uv->interval(), true);
-		if(mstruct[0][1].number().numeratorIsOne()) {
-			mstruct[0][1].number() *= mstruct[1].number();
-			mstruct.setToChild(1, true);
-			if(mstruct[1].number().isOne()) mstruct.setToChild(1, true);
-			else if(mstruct[0].isNumber()) mstruct.calculateRaiseExponent(eo);
-		}
-		return true;
-	} else if(mstruct.isVariable() && mstruct.variable() == uv) {
-		mstruct.set(uv->interval(), true);
-		return true;
-	}
-	bool b_ret = false;
-	for(size_t i = 0; i < mstruct.size(); i++) {
-		b_ret = restore_fracpow(mstruct[i], uv, eo, b_eval) || b_ret;
-	}
-	if(b_ret && b_eval) return mstruct.calculatesub(eo, eo, false);
-	return false;
 }
 
 #define I_RUN_ARG(x) ((depth * 100) + x)
@@ -799,22 +863,43 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 
 	if(!combine_only && combine_divisions && i_run == 1) {
 		bool b_ret = do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1));
-		vector<UnknownVariable*> uv;
-		replace_fracpow(mstruct, uv);
-		if(uv.size() > 0) {
-			MathStructure mbak(mstruct);
-			mstruct.evalSort(true);
-			bool b = do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1)) && mbak != mstruct;
-			EvaluationOptions eo2 = eo;
-			eo2.expand = false;
-			for(size_t i = 0; i < uv.size(); i++) {
-				restore_fracpow(mstruct, uv[i], eo2, b);
-				uv[i]->destroy();
+		if(test_replace_fracpow(mstruct)) {
+			vector<UnknownVariable*> uv;
+			replace_fracpow(mstruct, uv);
+			if(uv.size() > 0) {
+				MathStructure mbak(mstruct);
+				mstruct.evalSort(true);
+				bool b = do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1)) && mbak != mstruct;
+				EvaluationOptions eo2 = eo;
+				eo2.expand = false;
+				for(size_t i = uv.size(); i > 0; i--) {
+					restore_fracpow(mstruct, uv[i - 1], eo2, b);
+					uv[i - 1]->destroy();
+				}
+				mstruct.evalSort(true);
+				if(b) {
+					b_ret = true;
+					if(mstruct.calculatesub(eo, eo)) do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1));
+				}
 			}
-			mstruct.evalSort(true);
-			if(b) {
-				b_ret = true;
-				if(mstruct.calculatesub(eo, eo)) do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1));
+		} else {
+			vector<UnknownVariable*> uv;
+			replace_fracpow2(mstruct, uv);
+			if(uv.size() > 0) {
+				MathStructure mbak(mstruct);
+				mstruct.evalSort(true);
+				bool b = do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1)) && mbak != mstruct;
+				EvaluationOptions eo2 = eo;
+				eo2.expand = false;
+				for(size_t i = uv.size(); i > 0; i--) {
+					restore_fracpow(mstruct, uv[i - 1], eo2, b);
+					uv[i - 1]->destroy();
+				}
+				mstruct.evalSort(true);
+				if(b) {
+					b_ret = true;
+					if(mstruct.calculatesub(eo, eo)) do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1));
+				}
 			}
 		}
 		return b_ret;
@@ -831,11 +916,61 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 		depth--;
 		return do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, false, limit_size, I_RUN_ARG(i_run)) || b;
 	}
-	if(mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isAddition() && mstruct[0].isRationalPolynomial()) {
+	if(mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isAddition() && (mstruct[0].isRationalPolynomial())) {
 		MathStructure msqrfree(mstruct[0]);
 		if(sqrfree(msqrfree, eo) && msqrfree.isPower() && msqrfree.calculateRaise(mstruct[1], eo)) {
 			mstruct = msqrfree;
 			return true;
+		}
+		bool bfrac = false, bint = true;
+		idm1(mstruct[0], bfrac, bint);
+		if(bfrac || bint) {
+			Number gcd(1, 1);
+			idm2(mstruct[0], bfrac, bint, gcd);
+			if((bint || bfrac) && !gcd.isOne()) {
+				if(bfrac) gcd.recip();
+				msqrfree = mstruct[0];
+				msqrfree.calculateDivide(gcd, eo);
+				if(sqrfree(msqrfree, eo) && msqrfree.isPower()) {
+					msqrfree *= gcd;
+					if(msqrfree.calculateRaise(mstruct[1], eo) && (msqrfree.isAddition() || (msqrfree.isMultiplication() && !msqrfree.last().isPower()))) {
+						mstruct = msqrfree;
+						return true;
+					}
+				}
+			}
+		}
+	} else if(mstruct.function() && mstruct.function()->id() == FUNCTION_ID_LOG && mstruct.size() == 1 && mstruct[0].representsPositive() && mstruct[0].isRationalPolynomial()) {
+		MathStructure msqrfree(mstruct[0]);
+		if(sqrfree(msqrfree, eo) && msqrfree.isPower()) {
+			msqrfree.transformById(FUNCTION_ID_LOG);
+			EvaluationOptions eo2 = eo;
+			eo2.expand = false;
+			if(msqrfree.calculateFunctions(eo2) && msqrfree.isMultiplication()) {
+				mstruct = msqrfree;
+				return true;
+			}
+		}
+		bool bfrac = false, bint = true;
+		idm1(mstruct[0], bfrac, bint);
+		if(bfrac || bint) {
+			Number gcd(1, 1);
+			idm2(mstruct[0], bfrac, bint, gcd);
+			if((bint || bfrac) && !gcd.isOne()) {
+				if(bfrac) gcd.recip();
+				msqrfree = mstruct[0];
+				msqrfree.calculateDivide(gcd, eo);
+				if(sqrfree(msqrfree, eo) && msqrfree.isPower()) {
+					msqrfree *= gcd;
+					msqrfree.transformById(FUNCTION_ID_LOG);
+					EvaluationOptions eo2 = eo;
+					eo2.expand = false;
+					if(msqrfree.calculateFunctions(eo2) && msqrfree.isAddition() && msqrfree.last().isMultiplication()) {
+						mstruct = msqrfree;
+						return true;
+					}
+				}
+			}
 		}
 	} else if(mstruct.isFunction() && mstruct.function()->id() == FUNCTION_ID_ROOT && VALID_ROOT(mstruct) && mstruct[0].isAddition() && mstruct[0].isRationalPolynomial()) {
 		MathStructure msqrfree(mstruct[0]);

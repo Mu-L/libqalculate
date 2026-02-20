@@ -1164,6 +1164,73 @@ bool combination_factorize(MathStructure &mstruct) {
 	return retval;
 }
 
+bool complete_square_int(MathStructure &m) {
+	if(m.size() == 3 && m[2].isNumber()) {
+		MathStructure *xvar = NULL;
+		Number *nr2 = NULL, *nr1 = NULL, *exp = NULL;
+		if(m[0].isPower() && m[0][0].size() == 0 && m[0][1].isNumber() && m[0][1].number().isRational() && m[0][1].number().isPositive()) {
+			xvar = &m[0][0];
+			exp = &m[0][1].number();
+		} else if(m[0].isMultiplication() && m[0].size() == 2 && m[0][0].isNumber()) {
+			if(m[0][1].isPower()) {
+				if(m[0][1][0].size() == 0 && m[0][1][1].isNumber() && m[0][1][1].number().isRational() && m[0][1][1].number().isPositive()) {
+					xvar = &m[0][1][0];
+					exp = &m[0][1][1].number();
+					nr2 = &m[0][0].number();
+				}
+			} else {
+				xvar = &m[0][1];
+				nr2 = &m[0][0].number();
+			}
+		} else {
+			xvar = &m[0];
+		}
+		if(xvar) {
+			bool factorable = false;
+			if(m[1].isMultiplication()) {
+				if(m[1].size() == 2 && m[1][0].isNumber()) {
+					if(exp && exp->isTwo()) {
+						if(xvar->equals(m[1][1])) factorable = true;
+					} else if(m[1][1].isPower() && xvar->equals(m[1][1][0])) {
+						if(exp && m[1][1][1].equals((*exp) / 2)) factorable = true;
+						else if(!exp && m[1][1][1].equals(nr_half)) factorable = true;
+					}
+					nr1 = &m[1][0].number();
+				}
+			} else if(exp && exp->isTwo()) {
+				if(xvar->equals(m[1])) factorable = true;
+			} else if(m[1].isPower() && xvar->equals(m[1][0])) {
+				if(exp && m[1][1].equals((*exp) / 2)) factorable = true;
+				else if(!exp && m[1][1].equals(nr_half)) factorable = true;
+			}
+			if(factorable) {
+				Number nrh(nr1 ? *nr1 : nr_one);
+				nrh /= 2;
+				if(nr2) nrh /= *nr2;
+				if(nrh.isInteger()) {
+					Number nrk(nrh);
+					if(nrk.square()) {
+						if(nr2) nrk *= *nr2;
+						nrk.negate();
+						nrk += m[2].number();
+						MathStructure mnew(*xvar);
+						if(!exp) mnew.raise(nr_half);
+						else if(!exp->isTwo()) mnew.raise((*exp) / 2);
+						mnew.add(nrh);
+						mnew.raise(nr_two);
+						if(nr2) mnew.multiply(*nr2);
+						if(!nrk.isZero()) mnew.add(nrk);
+						mnew.evalSort(true);
+						m.set_nocopy(mnew, true);
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+}
+
 bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize, int term_combination_levels, int max_msecs, bool only_integers, int recursive, struct timeval *endtime_p, const MathStructure &force_factorization, bool complete_square, bool only_sqrfree, int max_factor_degree) {
 
 	if(CALCULATOR->aborted()) return false;
@@ -1199,7 +1266,25 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 		eo2.sync_units = false;
 		calculatesub(eo2, eo2);
 		do_simplification(*this, eo, true, false, true);
-	} else if(term_combination_levels && isAddition()) {
+	}
+	bool return_true = false;
+	if(isAddition() && force_factorization.isUndefined() && test_replace_fracpow(*this)) {
+		vector<UnknownVariable*> uv;
+		replace_fracpow(*this, uv);
+		if(uv.size() > 0) {
+			evalSort(true);
+			bool b = factorize(eo, false, false, 0, only_integers, recursive, endtime_p, force_factorization, complete_square, only_sqrfree, max_factor_degree);
+			EvaluationOptions eo2 = eo;
+			eo2.expand = false;
+			for(size_t i = uv.size(); i > 0; i--) {
+				restore_fracpow(*this, uv[i - 1], eo2, b);
+				uv[i - 1]->destroy();
+			}
+			evalSort(true);
+			if(b) return_true = true;
+		}
+	}
+	if(!unfactorize && term_combination_levels && isAddition()) {
 		MathStructure *mdiv = new MathStructure;
 		mdiv->setType(STRUCT_ADDITION);
 		for(size_t i = 0; i < SIZE; ) {
@@ -1304,7 +1389,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 					b_ret = CHILD(index).factorize(eo, false, term_combination_levels, 0, only_integers, recursive, endtime_p, force_factorization, complete_square, only_sqrfree, max_factor_degree) || b_ret;
 				}
 			}
-			return b_ret;
+			return b_ret || return_true;
 		}
 		mdiv->unref();
 	}
@@ -2620,69 +2705,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 			//complete the square
 			if(max_factor_degree != 0 && (term_combination_levels != 0 || complete_square)) {
 				if(only_integers) {
-					if(SIZE == 3 && CHILD(2).isNumber()) {
-						MathStructure *xvar = NULL;
-						Number *nr2 = NULL, *nr1 = NULL, *exp = NULL;
-						if(CHILD(0).isPower() && CHILD(0)[0].size() == 0 && CHILD(0)[1].isNumber() && CHILD(0)[1].number().isRational() && CHILD(0)[1].number().isPositive()) {
-							xvar = &CHILD(0)[0];
-							exp = &CHILD(0)[1].number();
-						} else if(CHILD(0).isMultiplication() && CHILD(0).size() == 2 && CHILD(0)[0].isNumber()) {
-							if(CHILD(0)[1].isPower()) {
-								if(CHILD(0)[1][0].size() == 0 && CHILD(0)[1][1].isNumber() && CHILD(0)[1][1].number().isRational() && CHILD(0)[1][1].number().isPositive()) {
-									xvar = &CHILD(0)[1][0];
-									exp = &CHILD(0)[1][1].number();
-									nr2 = &CHILD(0)[0].number();
-								}
-							} else {
-								xvar = &CHILD(0)[1][0];
-								nr2 = &CHILD(0)[0].number();
-							}
-						} else {
-							xvar = &CHILD(0);
-						}
-						if(xvar) {
-							bool factorable = false;
-							if(CHILD(1).isMultiplication()) {
-								if(CHILD(1).size() == 2 && CHILD(1)[0].isNumber()) {
-									if(exp && exp->isTwo()) {
-										if(xvar->equals(CHILD(1)[1])) factorable = true;
-									} else if(CHILD(1)[1].isPower() && xvar->equals(CHILD(1)[1][0])) {
-										if(exp && CHILD(1)[1][1].equals((*exp) / 2)) factorable = true;
-										else if(!exp && CHILD(1)[1][1].equals(nr_half)) factorable = true;
-									}
-									nr1 = &CHILD(1)[0].number();
-								}
-							} else if(exp && exp->isTwo()) {
-								if(xvar->equals(CHILD(1))) factorable = true;
-							} else if(CHILD(1).isPower() && xvar->equals(CHILD(1)[0])) {
-								if(exp && CHILD(1)[1].equals((*exp) / 2)) factorable = true;
-								else if(!exp && CHILD(1)[1].equals(nr_half)) factorable = true;
-							}
-							if(factorable) {
-								Number nrh(nr1 ? *nr1 : nr_one);
-								nrh /= 2;
-								if(nr2) nrh /= *nr2;
-								if(nrh.isInteger()) {
-									Number nrk(nrh);
-									if(nrk.square()) {
-										if(nr2) nrk *= *nr2;
-										nrk.negate();
-										nrk += CHILD(2).number();
-										MathStructure mnew(*xvar);
-										if(!exp) mnew.raise(nr_half);
-										else if(!exp->isTwo()) mnew.raise((*exp) / 2);
-										mnew.add(nrh);
-										mnew.raise(nr_two);
-										if(nr2) mnew.multiply(*nr2);
-										if(!nrk.isZero()) mnew.add(nrk);
-										mnew.evalSort(true);
-										set_nocopy(mnew, true);
-										return true;
-									}
-								}
-							}
-						}
-					}
+					if(complete_square_int(*this)) return true;
 				} else {
 					MathStructure m2, m1, m0;
 					const MathStructure *xvar = NULL;
@@ -2915,7 +2938,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 					delChild(SIZE, true);
 					b = factorize(eo, false, term_combination_levels - 1, 0, only_integers, recursive, endtime_p, force_factorization, complete_square, only_sqrfree, max_factor_degree);
 					add_nocopy(mdel, true);
-					if(term_combination_levels == 1) return b || b_ret;
+					if(term_combination_levels == 1) return b || b_ret || return_true;
 					if(b) b_ret = true;
 				}
 				for(size_t i = 0; !b && i < SIZE; i++) {
@@ -2939,7 +2962,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 						b = factorize(eo, false, term_combination_levels - 1, 0, only_integers, recursive, endtime_p, force_factorization, complete_square, only_sqrfree, max_factor_degree);
 						if(recursive) mdel->factorize(eo, false, term_combination_levels, 0, only_integers, recursive, endtime_p, force_factorization, complete_square, only_sqrfree, max_factor_degree);
 						add_nocopy(mdel, true);
-						if(term_combination_levels == 1) return b || b_ret;
+						if(term_combination_levels == 1) return b || b_ret || return_true;
 						if(b) b_ret = true;
 						break;
 					} else {
@@ -3173,7 +3196,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 						return true;
 					}
 				}
-				return b_ret;
+				return b_ret || return_true;
 			} else if(term_combination_levels != 0 && SIZE > 2) {
 				int start_index = rand() % SIZE;
 				int index = start_index;
@@ -3322,6 +3345,6 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 			}
 		}
 	}
-	return false;
+	return return_true;
 }
 

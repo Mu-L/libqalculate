@@ -4365,8 +4365,26 @@ int MathStructure::merge_logical_and(MathStructure &mstruct, const EvaluationOpt
 				default: {
 					if(!eo.test_comparisons) return -1;
 					if(comparisonType() == COMPARISON_EQUALS && !CHILD(1).contains(mstruct[0])) {
-						mstruct.calculateReplace(CHILD(0), CHILD(1), eo);
-						if(eo.isolate_x) {mstruct.isolate_x(eo, eo); mstruct.calculatesub(eo, eo, true);}
+						if(eo.isolate_x) {
+							MathStructure mbak(mstruct);
+							CALCULATOR->beginTemporaryStopMessages();
+							mstruct.calculateReplace(CHILD(0), CHILD(1), eo);
+							if(!mstruct.isolate_x(eo, eo) && !mbak[1].contains(CHILD(0))) {
+								CALCULATOR->endTemporaryStopMessages();
+								mstruct = mbak;
+								calculateReplace(mstruct[0], mstruct[1], eo);
+								isolate_x(eo, eo);
+								calculatesub(eo, eo, true);
+								mstruct.ref();
+								add_nocopy(&mstruct, OPERATION_LOGICAL_AND);
+								calculateLogicalAndLast(eo);
+								return 1;
+							}
+							CALCULATOR->endTemporaryStopMessages(true);
+							mstruct.calculatesub(eo, eo, true);
+						} else {
+							mstruct.calculateReplace(CHILD(0), CHILD(1), eo);
+						}
 						mstruct.ref();
 						add_nocopy(&mstruct, OPERATION_LOGICAL_AND);
 						calculateLogicalAndLast(eo);

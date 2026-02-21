@@ -1230,6 +1230,45 @@ bool complete_square_int(MathStructure &m) {
 	}
 	return false;
 }
+bool sqrt_to_square(MathStructure &m) {
+	if(m.isAddition() && m.size() == 2 && m[1].isNumber() && m[1].number().isRational() && ((m[0].isMultiplication() && m[0].size() == 2 && m[0][0].isNumber() && m[0][0].number().isInteger() && !m[0][0].number().isZero() && m[0][1].isPower() && m[0][1][0].isNumber() && m[0][1][1].isNumber() && m[0][1][1].number() == nr_half && m[0][1][0].number().isRational() && m[0][1][0].number().isPositive()) || (m[0].isPower() && m[0][0].isNumber() && m[0][1].isNumber() && m[0][1].number() == nr_half && m[0][0].number().isRational() && m[0][0].number().isPositive()))) {
+		//(-b+/-sqrt(b^2-4ac))/2a
+		bool b_neg = m[0].isMultiplication() && m[0][0].number().isNegative();
+		bool b_odd = false;
+		Number nr_c(m[0].isMultiplication() ? m[0][1][0].number() : m[0][0].number());
+		Number nr_b2(m[1].number());
+		if(!m[0].isMultiplication()) {
+			b_odd = true;
+		} else if(m[0][0].number() != 2 && m[0][0].number() != -2) {
+			Number nr_cmul(m[0][0].number());
+			if(nr_cmul.isOdd()) {
+				b_odd = true;
+			} else {
+				if(!nr_cmul.divide(b_neg ? -2 : 2)) return false;
+			}
+			if(!nr_cmul.square() || !nr_c.multiply(nr_cmul) || !nr_c.isRational()) return false;
+		}
+		if(b_odd && !nr_b2.multiply(2)) return false;
+		if(!nr_b2.square() || !nr_c.multiply(4) || !nr_b2.subtract(nr_c) || !nr_b2.isInteger() || !mpz_perfect_square_p(mpq_numref(nr_b2.internalRational())) || !nr_b2.isqrt()) return false;
+		Number nr2(nr_b2);
+		Number nr_b(m[1].number());
+		if(b_odd && !nr_b.multiply(2)) return false;
+		if(!nr_b2.add(nr_b) || !nr2.negate() || !nr2.add(nr_b) || !nr_b2.divide(2) || !nr2.divide(2) || !nr_b2.isRational() || !nr2.isRational()) return false;
+		m.set(nr_b2, true);
+		m ^= nr_half;
+		m.add(nr2);
+		m.last() ^= nr_half;
+		if(b_neg) m.last().negate();
+		m.evalSort();
+		m ^= nr_two;
+		if(b_odd) {
+			m *= nr_half;
+			m.evalSort();
+		}
+		return true;
+	}
+	return false;
+}
 
 bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize, int term_combination_levels, int max_msecs, bool only_integers, int recursive, struct timeval *endtime_p, const MathStructure &force_factorization, bool complete_square, bool only_sqrfree, int max_factor_degree) {
 
@@ -1273,7 +1312,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 		replace_fracpow(*this, uv);
 		if(uv.size() > 0) {
 			evalSort(true);
-			bool b = factorize(eo, false, false, 0, only_integers, recursive, endtime_p, force_factorization, complete_square, only_sqrfree, max_factor_degree);
+			bool b = factorize(eo, false, false, 0, only_integers, recursive, endtime_p, force_factorization, false, only_sqrfree, max_factor_degree);
 			EvaluationOptions eo2 = eo;
 			eo2.expand = false;
 			for(size_t i = uv.size(); i > 0; i--) {
@@ -2704,6 +2743,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 
 			//complete the square
 			if(max_factor_degree != 0 && (term_combination_levels != 0 || complete_square)) {
+				if(sqrt_to_square(*this)) return true;
 				if(only_integers) {
 					if(complete_square_int(*this)) return true;
 				} else {

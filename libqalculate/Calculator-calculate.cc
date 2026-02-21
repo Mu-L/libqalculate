@@ -160,8 +160,10 @@ bool Calculator::abort() {
 		b_busy = false;
 	} else {
 		// wait 5 seconds for clean abortation
-		PREPARE_TIMECHECK(i_precision > 1000 ? 10000 : 5000)
-		for(int i = 0; b_busy && i < 10000; i++) {
+		long int time = 5000 + (::cbrt(i_precision) * 1000);
+		if(time > 100000) time = 100000;
+		PREPARE_TIMECHECK(time)
+		for(int i = 0; b_busy && i < time; i++) {
 			sleep_ms(1);
 			DO_TIMECHECK {break;}
 		}

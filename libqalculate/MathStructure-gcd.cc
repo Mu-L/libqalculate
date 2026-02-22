@@ -935,9 +935,11 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 		return do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, false, limit_size, I_RUN_ARG(i_run)) || b;
 	}
 	if(mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isAddition() && (mstruct[0].isRationalPolynomial())) {
+		CALCULATOR->beginTemporaryStopMessages();
 		MathStructure msqrfree(mstruct[0]);
 		if(sqrfree(msqrfree, eo) && msqrfree.isPower() && msqrfree.calculateRaise(mstruct[1], eo)) {
 			mstruct = msqrfree;
+			CALCULATOR->endTemporaryStopMessages(true);
 			return true;
 		}
 		bool bfrac = false, bint = true;
@@ -953,12 +955,15 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 					msqrfree *= gcd;
 					if(msqrfree.calculateRaise(mstruct[1], eo) && (msqrfree.isAddition() || (msqrfree.isMultiplication() && !msqrfree.last().isPower()))) {
 						mstruct = msqrfree;
+						CALCULATOR->endTemporaryStopMessages(true);
 						return true;
 					}
 				}
 			}
 		}
+		CALCULATOR->endTemporaryStopMessages();
 	} else if(mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().denominatorIsTwo()) {
+		CALCULATOR->beginTemporaryStopMessages();
 		MathStructure msqrfree(mstruct[0]);
 		bool bfrac = false, bint = true;
 		idm1(msqrfree, bfrac, bint);
@@ -972,15 +977,19 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 					msqrfree *= gcd;
 					if(msqrfree.calculateRaise(mstruct[1], eo) && (msqrfree.isAddition() || (msqrfree.isMultiplication() && !msqrfree.last().isPower()))) {
 						mstruct = msqrfree;
+						CALCULATOR->endTemporaryStopMessages(true);
 						return true;
 					}
 				}
 			}
 		} else if(sqrt_to_square(msqrfree) && msqrfree.calculateRaise(mstruct[1], eo)) {
 			mstruct = msqrfree;
+			CALCULATOR->endTemporaryStopMessages(true);
 			return true;
 		}
+		CALCULATOR->endTemporaryStopMessages();
 	} else if(mstruct.function() && mstruct.function()->id() == FUNCTION_ID_LOG && mstruct.size() == 1 && mstruct[0].representsPositive() && mstruct[0].isRationalPolynomial()) {
+		CALCULATOR->beginTemporaryStopMessages();
 		MathStructure msqrfree(mstruct[0]);
 		if(sqrfree(msqrfree, eo) && msqrfree.isPower()) {
 			msqrfree.transformById(FUNCTION_ID_LOG);
@@ -988,6 +997,7 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 			eo2.expand = false;
 			if(msqrfree.calculateFunctions(eo2) && msqrfree.isMultiplication()) {
 				mstruct = msqrfree;
+				CALCULATOR->endTemporaryStopMessages(true);
 				return true;
 			}
 		}
@@ -1007,17 +1017,20 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 					eo2.expand = false;
 					if(msqrfree.calculateFunctions(eo2) && msqrfree.isAddition() && msqrfree.last().isMultiplication()) {
 						mstruct = msqrfree;
+						CALCULATOR->endTemporaryStopMessages(true);
 						return true;
 					}
 				}
 			}
 		}
+		CALCULATOR->endTemporaryStopMessages();
 	} else if(mstruct.isFunction() && mstruct.function()->id() == FUNCTION_ID_ROOT && VALID_ROOT(mstruct) && mstruct[0].isAddition() && mstruct[0].isRationalPolynomial()) {
+		CALCULATOR->beginTemporaryStopMessages();
 		MathStructure msqrfree(mstruct[0]);
 		if(sqrfree(msqrfree, eo) && msqrfree.isPower() && msqrfree[1].isInteger() && msqrfree[1].number().isPositive()) {
 			if(msqrfree[1] == mstruct[1]) {
 				if(msqrfree[1].number().isEven()) {
-					if(!msqrfree[0].representsReal(true)) return false;
+					if(!msqrfree[0].representsReal(true)) {CALCULATOR->endTemporaryStopMessages(); return false;}
 					msqrfree.delChild(2);
 					msqrfree.setType(STRUCT_FUNCTION);
 					msqrfree.setFunctionId(FUNCTION_ID_ABS);
@@ -1025,20 +1038,22 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 				} else {
 					mstruct = msqrfree[0];
 				}
+				CALCULATOR->endTemporaryStopMessages(true);
 				return true;
 			} else if(msqrfree[1].number().isIntegerDivisible(mstruct[1].number())) {
 				if(msqrfree[1].number().isEven()) {
-					if(!msqrfree[0].representsReal(true)) return false;
+					if(!msqrfree[0].representsReal(true)) {CALCULATOR->endTemporaryStopMessages(); return false;}
 					msqrfree[0].transform(STRUCT_FUNCTION);
 					msqrfree[0].setFunctionId(FUNCTION_ID_ABS);
 				}
 				msqrfree[1].number().divide(mstruct[1].number());
 				mstruct = msqrfree;
 				mstruct.calculatesub(eo, eo, false);
+				CALCULATOR->endTemporaryStopMessages(true);
 				return true;
 			} else if(mstruct[1].number().isIntegerDivisible(msqrfree[1].number())) {
 				if(msqrfree[1].number().isEven()) {
-					if(!msqrfree[0].representsReal(true)) return false;
+					if(!msqrfree[0].representsReal(true)) {CALCULATOR->endTemporaryStopMessages(); return false;}
 					msqrfree[0].transform(STRUCT_FUNCTION);
 					msqrfree[0].setFunctionId(FUNCTION_ID_ABS);
 				}
@@ -1046,9 +1061,11 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 				new_root.divide(msqrfree[1].number());
 				mstruct[0] = msqrfree[0];
 				mstruct[1] = new_root;
+				CALCULATOR->endTemporaryStopMessages(true);
 				return true;
 			}
 		}
+		CALCULATOR->endTemporaryStopMessages();
 	}
 	if(!mstruct.isAddition() && !mstruct.isMultiplication()) return false;
 
@@ -1230,7 +1247,11 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 		if(i_run > 1) {
 			for(size_t i = 0; i < divs.size();) {
 				bool b = true;
-				if(!divs[i].isRationalPolynomial() || !nums[i].isRationalPolynomial()) {
+				if(!divs[i].isRationalPolynomial() || (!nums[i].isRationalPolynomial() && !nums[i].isZero())) {
+					if(mstruct.size() == 1) mstruct.setToChild(1);
+					return false;
+				}
+				if(nums[i].isZero() && !divs[i].representsNonZero(true) && eo.warn_about_denominators_assumed_nonzero && !warn_about_denominators_assumed_nonzero(divs[i], eo)) {
 					if(mstruct.size() == 1) mstruct.setToChild(1);
 					return false;
 				}
@@ -1259,6 +1280,10 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 			while(divs.size() > 0) {
 				bool b = true;
 				if(!divs[0].isRationalPolynomial() || (!nums[0].isRationalPolynomial() && !nums[0].isZero())) {
+					if(mstruct.size() == 1) mstruct.setToChild(1);
+					return false;
+				}
+				if(nums[0].isZero() && !divs[0].representsNonZero(true) && eo.warn_about_denominators_assumed_nonzero && !warn_about_denominators_assumed_nonzero(divs[0], eo)) {
 					if(mstruct.size() == 1) mstruct.setToChild(1);
 					return false;
 				}

@@ -217,6 +217,41 @@ int AbsFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, c
 			}
 		}
 	}
+	if(mstruct.isAddition() && mstruct.size() == 2) {
+		size_t i1 = 10;
+		if(mstruct[0].isFunction() && mstruct[0].function() == this) i1 = 0;
+		else if(mstruct[1].isFunction() && mstruct[1].function() == this) i1 = 1;
+		else if(mstruct[0].isMultiplication() && mstruct[0].size() >= 2 && mstruct[0].last().isFunction() && mstruct[0].last().function() == this) i1 = 2;
+		else if(mstruct[1].isMultiplication() && mstruct[1].size() >= 2 && mstruct[1].last().isFunction() && mstruct[1].last().function() == this) i1 = 3;
+		if(i1 <= 1) {
+			size_t i2 = (i1 == 0 ? 1 : 0);
+			if(mstruct[i1].size() == 1 && mstruct[i2] == mstruct[i1][0] && mstruct[i2].representsReal()) {
+				return 1;
+			}
+		} else if(i1 <= 3) {
+			i1 -= 2;
+			size_t i2 = (i1 == 0 ? 1 : 0);
+			if(mstruct[i1].last().size() == 1 && mstruct[i2] == mstruct[i1].last()[0] && mstruct[i2].representsReal()) {
+				if(mstruct[i1].size() == 2 && mstruct[i1][0].isMinusOne()) {
+					mstruct.negate();
+					return 1;
+				}
+				ComparisonResult cmp = COMPARISON_RESULT_UNKNOWN;
+				if(mstruct[i1].size() == 2) {
+					cmp = mstruct[i1][0].compare(m_one);
+				} else {
+					MathStructure *mlast = &mstruct[i1].last();
+					mlast->ref();
+					mstruct[i1].delChild(mstruct[i1].size());
+					cmp = mstruct[i1].compare(m_one);
+					mstruct[i1].addChild_nocopy(mlast);
+				}
+				if(COMPARISON_IS_EQUAL_OR_LESS(cmp)) {
+					return 1;
+				}
+			}
+		}
+	}
 	if(mstruct.representsNegative(true)) {
 		mstruct.negate();
 		return 1;

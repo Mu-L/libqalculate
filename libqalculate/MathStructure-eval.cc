@@ -2938,7 +2938,7 @@ MathStructure &MathStructure::eval(const EvaluationOptions &eo) {
 
 	calculatesub(eo2, feo);
 
-	if(eo.allow_infinite && replace_ln_zero(*this)) calculatesub(eo2, feo);
+	if(eo2.allow_infinite && replace_ln_zero(*this)) calculatesub(eo2, feo);
 
 	if(m_type == STRUCT_NUMBER) {FORMAT_COMPLEX_NUMBERS; return *this;}
 	if(m_type == STRUCT_UNDEFINED || m_type == STRUCT_ABORTED || m_type == STRUCT_DATETIME || m_type == STRUCT_UNIT || m_type == STRUCT_SYMBOLIC || (m_type == STRUCT_VARIABLE && !o_variable->isKnown())) return *this;

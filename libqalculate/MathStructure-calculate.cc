@@ -633,6 +633,26 @@ int MathStructure::merge_addition(MathStructure &mstruct, const EvaluationOption
 						}
 					}
 
+					if(SIZE == 2 && mstruct.size() == 2 && mstruct[1].isFunction() && mstruct[1].function()->id() == FUNCTION_ID_SIGNUM && mstruct[0].isMinusOne() && mstruct[1].size() == 2 && mstruct[1][1].isZero() && mstruct[1][0].representsReal()) {
+						if(CHILD(1).isFunction() && CHILD(1).function()->id() == FUNCTION_ID_ABS && CHILD(1).size() == 1 && CHILD(1)[0] == mstruct[1][0]) {
+							if(CHILD(0).isPower() && CHILD(0)[1].isMinusOne() && CHILD(1)[0] == CHILD(0)[0]) {
+								if(CHILD(0)[0].representsNonZero() || (eo.assume_denominators_nonzero && (!eo.warn_about_denominators_assumed_nonzero || warn_about_assumed_not_value(CHILD(0)[0], m_zero, eo)))) {
+									clear(true);
+									MERGE_APPROX_AND_PREC(mstruct)
+									return 1;
+								}
+							}
+						} else if(CHILD(1).isPower() && CHILD(1)[0].isFunction() && CHILD(1)[0].function()->id() == FUNCTION_ID_ABS && CHILD(1)[0].size() == 1 && CHILD(1)[1].isMinusOne() && CHILD(1)[0][0] == mstruct[1][0]) {
+							if(CHILD(0) == CHILD(1)[0][0]) {
+								if(CHILD(0).representsNonZero() || (eo.assume_denominators_nonzero && (!eo.warn_about_denominators_assumed_nonzero || warn_about_assumed_not_value(CHILD(0), m_zero, eo)))) {
+									clear(true);
+									MERGE_APPROX_AND_PREC(mstruct)
+									return 1;
+								}
+							}
+						}
+					}
+
 					if(!eo.combine_divisions) break;
 					// y/x+z/x=(y+z)/x (eo.combine_divisions is not used anymore)
 					b = true; size_t divs = 0;

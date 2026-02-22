@@ -3096,82 +3096,80 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 
 
 			// abs(x)+x=a => -x+x=a || x+x=a; sgn(x)+x=a => -1+x=a || 0+x=a || 1+x=a
-			if(ct_comp == COMPARISON_EQUALS || ct_comp == COMPARISON_NOT_EQUALS) {
-				MathStructure *m = find_abs_sgn(CHILD(0), x_var);
-				if(m && m->function()->id() == FUNCTION_ID_ABS) {
+			MathStructure *m = find_abs_sgn(CHILD(0), x_var);
+			if(m && m->function()->id() == FUNCTION_ID_ABS) {
 
-					MathStructure mabs(*m);
+				MathStructure mabs(*m);
 
-					ComparisonType ct_comp_bak = ct_comp;
-					MathStructure *malt = new MathStructure(*this);
-					MathStructure mabs_minus(mabs[0]);
-					mabs_minus.calculateNegate(eo2);
-					(*malt)[0].replace(mabs, mabs_minus, mabs.containsInterval());
-					(*malt)[0].calculatesub(eo2, eo, true);
-					malt->childUpdated(1);
-					MathStructure *mcheck = new MathStructure(mabs[0]);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_EQUALS_GREATER : OPERATION_LESS);
-					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					malt->calculatesub(eo2, eo, false);
+				ComparisonType ct_comp_bak = ct_comp;
+				MathStructure *malt = new MathStructure(*this);
+				MathStructure mabs_minus(mabs[0]);
+				mabs_minus.calculateNegate(eo2);
+				(*malt)[0].replace(mabs, mabs_minus, mabs.containsInterval());
+				(*malt)[0].calculatesub(eo2, eo, true);
+				malt->childUpdated(1);
+				MathStructure *mcheck = new MathStructure(mabs[0]);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_EQUALS_GREATER : OPERATION_LESS);
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				malt->calculatesub(eo2, eo, false);
 
+				mcheck = new MathStructure(mabs[0]);
+				CHILD(0).replace(mabs, mabs[0], mabs.containsInterval());
+				CHILD(0).calculatesub(eo2, eo, true);
+				CHILD_UPDATED(0)
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LESS : OPERATION_EQUALS_GREATER);
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				calculatesub(eo2, eo, false);
+				add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
+				calculatesub(eo2, eo, false);
+
+				return true;
+			} else if(m && m->function()->id() == FUNCTION_ID_SIGNUM) {
+				MathStructure mabs(*m);
+
+				ComparisonType ct_comp_bak = ct_comp;
+				MathStructure *malt = new MathStructure(*this);
+				(*malt)[0].replace(mabs, m_minus_one, mabs.containsInterval());
+				(*malt)[0].calculatesub(eo2, eo, true);
+				malt->childUpdated(1);
+				MathStructure *mcheck = new MathStructure(mabs[0]);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isMinusOne() ? OPERATION_GREATER : OPERATION_EQUALS_GREATER) : (mabs[1].isMinusOne() ? OPERATION_EQUALS_LESS : OPERATION_LESS));
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				malt->calculatesub(eo2, eo, false);
+
+				MathStructure *malt0 = NULL;
+				if(!mabs[1].isOne() && !mabs[1].isMinusOne()) {
+					malt0 = new MathStructure(*this);
+					(*malt0)[0].replace(mabs, mabs[1], mabs.containsInterval());
+					(*malt0)[0].calculatesub(eo2, eo, true);
+					malt0->childUpdated(1);
 					mcheck = new MathStructure(mabs[0]);
-					CHILD(0).replace(mabs, mabs[0], mabs.containsInterval());
-					CHILD(0).calculatesub(eo2, eo, true);
-					CHILD_UPDATED(0)
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LESS : OPERATION_EQUALS_GREATER);
+					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_NOT_EQUALS : OPERATION_EQUALS);
 					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					calculatesub(eo2, eo, false);
-					add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
-					calculatesub(eo2, eo, false);
-
-					return true;
-				} else if(m && m->function()->id() == FUNCTION_ID_SIGNUM) {
-					MathStructure mabs(*m);
-
-					ComparisonType ct_comp_bak = ct_comp;
-					MathStructure *malt = new MathStructure(*this);
-					(*malt)[0].replace(mabs, m_minus_one, mabs.containsInterval());
-					(*malt)[0].calculatesub(eo2, eo, true);
-					malt->childUpdated(1);
-					MathStructure *mcheck = new MathStructure(mabs[0]);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isMinusOne() ? OPERATION_GREATER : OPERATION_EQUALS_GREATER) : (mabs[1].isMinusOne() ? OPERATION_EQUALS_LESS : OPERATION_LESS));
-					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					malt->calculatesub(eo2, eo, false);
-
-					MathStructure *malt0 = NULL;
-					if(!mabs[1].isOne() && !mabs[1].isMinusOne()) {
-						malt0 = new MathStructure(*this);
-						(*malt0)[0].replace(mabs, mabs[1], mabs.containsInterval());
-						(*malt0)[0].calculatesub(eo2, eo, true);
-						malt0->childUpdated(1);
-						mcheck = new MathStructure(mabs[0]);
-						mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_NOT_EQUALS : OPERATION_EQUALS);
-						mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-						malt0->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-						malt0->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-						malt0->calculatesub(eo2, eo, false);
-					}
-
-					mcheck = new MathStructure(mabs[0]);
-					CHILD(0).replace(mabs, m_one, mabs.containsInterval());
-					CHILD(0).calculatesub(eo2, eo, true);
-					CHILD_UPDATED(0)
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isOne() ? OPERATION_LESS : OPERATION_EQUALS_LESS) : (mabs[1].isOne() ? OPERATION_EQUALS_GREATER : OPERATION_GREATER));
-					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					calculatesub(eo2, eo, false);
-					add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
-					if(malt0) add_nocopy(malt0, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
-					calculatesub(eo2, eo, false);
-					return true;
+					malt0->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+					malt0->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+					malt0->calculatesub(eo2, eo, false);
 				}
+
+				mcheck = new MathStructure(mabs[0]);
+				CHILD(0).replace(mabs, m_one, mabs.containsInterval());
+				CHILD(0).calculatesub(eo2, eo, true);
+				CHILD_UPDATED(0)
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isOne() ? OPERATION_LESS : OPERATION_EQUALS_LESS) : (mabs[1].isOne() ? OPERATION_EQUALS_GREATER : OPERATION_GREATER));
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				calculatesub(eo2, eo, false);
+				add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
+				if(malt0) add_nocopy(malt0, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
+				calculatesub(eo2, eo, false);
+				return true;
 			}
 
 			// Use newton raphson to calculate approximate solution for polynomial
@@ -4092,78 +4090,77 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 			}
 			if(!eo2.expand) break;
 			// abs(x)*x=a => -x*x=a || x*x=a; sgn(x)*x=a => -1*x=a || 0*x=a || 1*x=a
-			if(ct_comp == COMPARISON_EQUALS || ct_comp == COMPARISON_NOT_EQUALS) {
-				MathStructure *m = find_abs_sgn(CHILD(0), x_var);
-				if(m && m->function()->id() == FUNCTION_ID_ABS) {
+			MathStructure *m = find_abs_sgn(CHILD(0), x_var);
+			if(m && m->function()->id() == FUNCTION_ID_ABS) {
 
-					MathStructure mabs(*m);
+				MathStructure mabs(*m);
 
-					ComparisonType ct_comp_bak = ct_comp;
-					MathStructure *malt = new MathStructure(*this);
-					MathStructure mabs_minus(mabs[0]);
-					mabs_minus.calculateNegate(eo2);
-					(*malt)[0].replace(mabs, mabs_minus, mabs.containsInterval());
-					(*malt)[0].calculatesub(eo2, eo, true);
-					MathStructure *mcheck = new MathStructure(mabs[0]);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_EQUALS_GREATER : OPERATION_LESS);
-					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					malt->calculatesub(eo2, eo, false);
+				ComparisonType ct_comp_bak = ct_comp;
+				MathStructure *malt = new MathStructure(*this);
+				MathStructure mabs_minus(mabs[0]);
+				mabs_minus.calculateNegate(eo2);
+				(*malt)[0].replace(mabs, mabs_minus, mabs.containsInterval());
+				(*malt)[0].calculatesub(eo2, eo, true);
+				MathStructure *mcheck = new MathStructure(mabs[0]);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_EQUALS_GREATER : OPERATION_LESS);
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				malt->calculatesub(eo2, eo, false);
 
+				mcheck = new MathStructure(mabs[0]);
+				CHILD(0).replace(mabs, mabs[0], mabs.containsInterval());
+				CHILD(0).calculatesub(eo2, eo, true);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LESS : OPERATION_EQUALS_GREATER);
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				calculatesub(eo2, eo, false);
+				add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
+				calculatesub(eo2, eo, false);
+				return true;
+			} else if(m && m->function()->id() == FUNCTION_ID_SIGNUM) {
+				MathStructure mabs(*m);
+
+				ComparisonType ct_comp_bak = ct_comp;
+				MathStructure *malt = new MathStructure(*this);
+				(*malt)[0].replace(mabs, m_minus_one, mabs.containsInterval());
+				(*malt)[0].calculatesub(eo2, eo, true);
+				MathStructure *mcheck = new MathStructure(mabs[0]);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_EQUALS_GREATER : OPERATION_LESS);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isMinusOne() ? OPERATION_GREATER : OPERATION_EQUALS_GREATER) : (mabs[1].isMinusOne() ? OPERATION_EQUALS_LESS : OPERATION_LESS));
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				malt->calculatesub(eo2, eo, false);
+
+				MathStructure *malt0 = NULL;
+				if(!mabs[1].isOne() && !mabs[1].isMinusOne()) {
+					malt0 = new MathStructure(*this);
+					(*malt0)[0].replace(mabs, mabs[1], mabs.containsInterval());
+					(*malt0)[0].calculatesub(eo2, eo, true);
 					mcheck = new MathStructure(mabs[0]);
-					CHILD(0).replace(mabs, mabs[0], mabs.containsInterval());
-					CHILD(0).calculatesub(eo2, eo, true);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LESS : OPERATION_EQUALS_GREATER);
+					mcheck->add(mabs[1], ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_NOT_EQUALS : OPERATION_EQUALS);
 					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					calculatesub(eo2, eo, false);
-					add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
-					calculatesub(eo2, eo, false);
-					return true;
-				} else if(m && m->function()->id() == FUNCTION_ID_SIGNUM) {
-					MathStructure mabs(*m);
-
-					ComparisonType ct_comp_bak = ct_comp;
-					MathStructure *malt = new MathStructure(*this);
-					(*malt)[0].replace(mabs, m_minus_one, mabs.containsInterval());
-					(*malt)[0].calculatesub(eo2, eo, true);
-					MathStructure *mcheck = new MathStructure(mabs[0]);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_EQUALS_GREATER : OPERATION_LESS);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isMinusOne() ? OPERATION_GREATER : OPERATION_EQUALS_GREATER) : (mabs[1].isMinusOne() ? OPERATION_EQUALS_LESS : OPERATION_LESS));
-					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					malt->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					malt->calculatesub(eo2, eo, false);
-
-					MathStructure *malt0 = NULL;
-					if(!mabs[1].isOne() && !mabs[1].isMinusOne()) {
-						malt0 = new MathStructure(*this);
-						(*malt0)[0].replace(mabs, mabs[1], mabs.containsInterval());
-						(*malt0)[0].calculatesub(eo2, eo, true);
-						mcheck = new MathStructure(mabs[0]);
-						mcheck->add(mabs[1], ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_NOT_EQUALS : OPERATION_EQUALS);
-						mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-						malt0->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-						malt0->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-						malt0->calculatesub(eo2, eo, false);
-					}
-
-					mcheck = new MathStructure(mabs[0]);
-					CHILD(0).replace(mabs, m_one, mabs.containsInterval());
-					CHILD(0).calculatesub(eo2, eo, true);
-					mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isOne() ? OPERATION_LESS : OPERATION_EQUALS_LESS) : (mabs[1].isOne() ? OPERATION_EQUALS_GREATER : OPERATION_GREATER));
-					mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
-					add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
-					calculatesub(eo2, eo, false);
-					add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
-					if(malt0) add_nocopy(malt0, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
-					calculatesub(eo2, eo, false);
-					return true;
+					malt0->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+					malt0->add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+					malt0->calculatesub(eo2, eo, false);
 				}
+
+				mcheck = new MathStructure(mabs[0]);
+				CHILD(0).replace(mabs, m_one, mabs.containsInterval());
+				CHILD(0).calculatesub(eo2, eo, true);
+				mcheck->add(m_zero, ct_comp_bak == COMPARISON_NOT_EQUALS ? (mabs[1].isOne() ? OPERATION_LESS : OPERATION_EQUALS_LESS) : (mabs[1].isOne() ? OPERATION_EQUALS_GREATER : OPERATION_GREATER));
+				mcheck->isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				isolate_x_sub(eo, eo2, x_var, NULL, depth + 1);
+				add_nocopy(mcheck, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_OR : OPERATION_LOGICAL_AND, true);
+				calculatesub(eo2, eo, false);
+				add_nocopy(malt, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
+				if(malt0) add_nocopy(malt0, ct_comp_bak == COMPARISON_NOT_EQUALS ? OPERATION_LOGICAL_AND : OPERATION_LOGICAL_OR, true);
+				calculatesub(eo2, eo, false);
+				return true;
 			}
+
 			// Try factorization
 			if(!CHILD(1).isZero() && (!morig || !equals(*morig, true, true))) {
 				MathStructure mtest(*this);

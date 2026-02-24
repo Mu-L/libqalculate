@@ -757,6 +757,22 @@
       <names>a-cr:ZMW</names>
       <countries>Zambia</countries>
     </builtin_unit>
+    <builtin_unit name="XAG">
+      <title>Silve (one troy ounce)</title>
+      <names>a-cr:XAG</names>
+    </builtin_unit>
+    <builtin_unit name="XAU">
+      <title>Gold (one troy ounce)</title>
+      <names>a-cr:XAU</names>
+    </builtin_unit>
+    <builtin_unit name="XPD">
+      <title>Palladium (one troy ounce)</title>
+      <names>a-cr:XPD</names>
+    </builtin_unit>
+    <builtin_unit name="XPT">
+      <title>Platinum (one troy ounce)</title>
+      <names>a-cr:XPT</names>
+    </builtin_unit>
     <unit type="alias">
       <title>Euro Cent</title>
       <names>r:eurocent,p:eurocents</names>

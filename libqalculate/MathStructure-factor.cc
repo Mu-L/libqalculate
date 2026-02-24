@@ -717,7 +717,7 @@ bool factorize_find_multiplier(const MathStructure &mstruct, MathStructure &mnew
 									}
 									b = true;
 								} else if(cmp_mstruct->isPower() && IS_REAL((*cmp_mstruct)[1]) && cmp_mstruct->base()->equals(*bas)) {
-									if(cmp_mstruct->exponent()->number().isLessThan(exp ? exp->number() : nr_one)) {
+									if(cmp_mstruct->exponent()->number().compareAbsolute(exp ? exp->number() : nr_one) == COMPARISON_RESULT_LESS) {
 										exp = cmp_mstruct->exponent();
 									}
 									b = true;

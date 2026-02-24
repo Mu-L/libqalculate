@@ -826,7 +826,7 @@ bool contains_replace_fracpow_var(const MathStructure &mstruct) {
 }
 bool test_replace_fracpow(const MathStructure &mstruct, bool two, bool top) {
 	if(mstruct.isFunction()) return false;
-	if(top && !two && contains_replace_fracpow_var(mstruct)) return false;
+	if(top && contains_replace_fracpow_var(mstruct)) return false;
 	if(!top && mstruct.isPower() && mstruct[1].isNumber() && mstruct[1].number().isRational() && !mstruct[1].number().isInteger() && mstruct[0].isRationalPolynomial() && (two || mstruct[1].number().denominatorIsLessThan(5))) {
 		return true;
 	}
@@ -878,11 +878,11 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 
 	if(!combine_only && combine_divisions && i_run == 1) {
 		bool b_ret = do_simplification(mstruct, eo, combine_divisions, only_gcd, combine_only, recursive, limit_size, I_RUN_ARG(-1));
-		if(CALCULATOR->aborted()) return b_ret;
 		bool b = false;
-		if(test_replace_fracpow(mstruct, true)) {
+		if(test_replace_fracpow(mstruct)) {
+			if(CALCULATOR->aborted()) return b_ret;
 			vector<UnknownVariable*> uv;
-			replace_fracpow2(mstruct, uv);
+			replace_fracpow(mstruct, uv);
 			if(uv.size() > 0) {
 				MathStructure mbak(mstruct);
 				mstruct.evalSort(true);
@@ -900,9 +900,10 @@ bool do_simplification(MathStructure &mstruct, const EvaluationOptions &eo, bool
 				}
 			}
 		}
-		if(!b && test_replace_fracpow(mstruct)) {
+		if(!b && test_replace_fracpow(mstruct, true)) {
+			if(CALCULATOR->aborted()) return b_ret;
 			vector<UnknownVariable*> uv;
-			replace_fracpow(mstruct, uv);
+			replace_fracpow2(mstruct, uv);
 			if(uv.size() > 0) {
 				MathStructure mbak(mstruct);
 				mstruct.evalSort(true);

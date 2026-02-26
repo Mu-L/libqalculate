@@ -3547,6 +3547,26 @@ MathStructure Calculator::calculate(string str, const EvaluationOptions &eo, Mat
 					if(wheres[i2][index] == '=') {
 						v = new KnownVariable("\x14", sname, svalue);
 						v->setTitle("\b");
+						if(svalue.find(sname) != string::npos) {
+							MathStructure m;
+							beginTemporaryStopMessages();
+							parse(&m, svalue, eo.parse_options);
+							if(contains_variable_name(m, v)) {
+								m.eval(eo);
+								if(contains_variable_name(m, v)) {
+									endTemporaryStopMessages();
+									if(!str_where.empty()) str_where += LOGICAL_AND;
+									str_where += wheres[i2];
+									delete v;
+									v = NULL;
+								} else {
+									endTemporaryStopMessages(true);
+									((KnownVariable*) v)->set(m);
+								}
+							} else {
+								endTemporaryStopMessages();
+							}
+						}
 					} else {
 						MathStructure m;
 						beginTemporaryStopMessages();
@@ -3699,12 +3719,17 @@ MathStructure Calculator::calculate(string str, const EvaluationOptions &eo, Mat
 
 	if(!where_vars.empty()) {
 		for(size_t i = 0; i < where_vars.size(); i++) {
-			if(where_vars[i]->isKnown()) {
+			if(where_vars[i]->isKnown() && ((KnownVariable*) where_vars[i])->isExpression()) {
 				MathStructure m;
 				parse(&m, ((KnownVariable*) where_vars[i])->expression(), eo.parse_options);
 				replace_f_interval(m, eo);
 				calculate_rand(m, eo);
-				((KnownVariable*) where_vars[i])->set(m);
+				if(m.contains(where_vars[i], true, true, true) > 0) {
+					error(true, _("Recursive variable: %s = %s"), where_vars[i]->name().c_str(), m.print().c_str(), NULL);
+					((KnownVariable*) where_vars[i])->set(m_undefined);
+				} else {
+					((KnownVariable*) where_vars[i])->set(m);
+				}
 			}
 		}
 	}

@@ -2628,7 +2628,7 @@ MathStructure &MathStructure::eval(const EvaluationOptions &eo) {
 
 	EvaluationOptions feo = eo;
 	feo.structuring = STRUCTURING_NONE;
-	feo.do_polynomial_division = false;
+	//feo.do_polynomial_division = false;
 	feo.complex_number_form = COMPLEX_NUMBER_FORM_RECTANGULAR;
 	EvaluationOptions eo2 = eo;
 	eo2.structuring = STRUCTURING_NONE;

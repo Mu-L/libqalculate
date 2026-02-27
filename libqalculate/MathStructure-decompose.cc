@@ -365,7 +365,7 @@ bool MathStructure::decomposeFractions(const MathStructure &x_var, const Evaluat
 	return false;
 }
 
-bool expand_partial_fractions(MathStructure &m, const EvaluationOptions &eo, bool do_simplify = true) {
+bool expand_partial_fractions(MathStructure &m, const EvaluationOptions &eo, bool do_simplify) {
 	MathStructure mtest(m);
 	if(do_simplify) {
 		mtest.simplify(eo);

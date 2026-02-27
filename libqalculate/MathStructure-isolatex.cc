@@ -5188,6 +5188,16 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 		}
 		case STRUCT_FUNCTION: {
 			if(CHILD(0).function()->id() == FUNCTION_ID_ROOT && CHILD(0).size() == 2) {
+				if(CHILD(1).representsComplex()) {
+					if(ct_comp == COMPARISON_EQUALS) {
+						clear(true);
+						return true;
+					} else if(ct_comp == COMPARISON_NOT_EQUALS) {
+						set(1, 1, 0, true);
+						return true;
+					}
+					break;
+				}
 				if(CHILD(0)[0].contains(x_var) && VALID_ROOT(CHILD(0))) {
 					MathStructure *mposcheck = NULL;
 					bool b_test = false;
@@ -5221,6 +5231,9 @@ bool MathStructure::isolate_x_sub(const EvaluationOptions &eo, EvaluationOptions
 								mposcheck = new MathStructure(*this);
 							}
 						}
+					} else if((ct_comp == COMPARISON_EQUALS || ct_comp == COMPARISON_NOT_EQUALS) && !CHILD(1).representsNonComplex(true)) {
+						b_test = true;
+						mposcheck = new MathStructure(*this);
 					}
 					if((ct_comp == COMPARISON_EQUALS_LESS || ct_comp == COMPARISON_LESS) && CHILD(0)[1].number().numeratorIsEven()) {
 						mposcheck = new MathStructure(CHILD(0)[0]);

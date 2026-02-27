@@ -1230,7 +1230,7 @@ bool complete_square_int(MathStructure &m) {
 	}
 	return false;
 }
-bool sqrt_to_square(MathStructure &m) {
+bool sqrt_to_square(MathStructure &m, const EvaluationOptions &eo) {
 	if(m.isAddition() && m.size() == 2 && m[1].isNumber() && m[1].number().isRational() && ((m[0].isMultiplication() && m[0].size() == 2 && m[0][0].isNumber() && m[0][0].number().isInteger() && !m[0][0].number().isZero() && m[0][1].isPower() && m[0][1][0].isNumber() && m[0][1][1].isNumber() && m[0][1][1].number() == nr_half && m[0][1][0].number().isRational() && m[0][1][0].number().isPositive()) || (m[0].isPower() && m[0][0].isNumber() && m[0][1].isNumber() && m[0][1].number() == nr_half && m[0][0].number().isRational() && m[0][0].number().isPositive()))) {
 		//(-b+/-sqrt(b^2-4ac))/2a
 		bool b_neg = m[0].isMultiplication() && m[0][0].number().isNegative();
@@ -1253,11 +1253,13 @@ bool sqrt_to_square(MathStructure &m) {
 		Number nr2(nr_b2);
 		Number nr_b(m[1].number());
 		if(b_odd && !nr_b.multiply(2)) return false;
-		if(!nr_b2.add(nr_b) || !nr2.negate() || !nr2.add(nr_b) || !nr_b2.divide(2) || !nr2.divide(2) || !nr_b2.isRational() || !nr2.isRational()) return false;
+		if(!nr_b2.add(nr_b) || !nr2.negate() || !nr2.add(nr_b) || !nr_b2.divide(2) || !nr2.divide(2) || !nr_b2.isRational() || !nr2.isRational() || !nr2.isPositive() || !nr_b2.isPositive()) return false;
 		m.set(nr_b2, true);
-		m ^= nr_half;
+		if(!nr_b2.isOne()) {m.calculateRaise(nr_half, eo);}
 		m.add(nr2);
-		m.last() ^= nr_half;
+		if(!nr2.isOne()) {
+			m.last().calculateRaise(nr_half, eo);
+		}
 		if(b_neg) m.last().negate();
 		m.evalSort();
 		m ^= nr_two;
@@ -1307,9 +1309,9 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 		do_simplification(*this, eo, true, false, true);
 	}
 	bool return_true = false;
-	if(isAddition() && force_factorization.isUndefined() && test_replace_fracpow(*this)) {
+	if(isAddition() && force_factorization.isUndefined() && test_replace_fracpow_factor(*this)) {
 		vector<UnknownVariable*> uv;
-		replace_fracpow(*this, uv);
+		replace_fracpow(*this, uv, false);
 		if(uv.size() > 0) {
 			evalSort(true);
 			bool b = factorize(eo, false, false, 0, only_integers, recursive, endtime_p, force_factorization, false, only_sqrfree, max_factor_degree);
@@ -2743,7 +2745,7 @@ bool MathStructure::factorize(const EvaluationOptions &eo_pre, bool unfactorize,
 
 			//complete the square
 			if(max_factor_degree != 0 && (term_combination_levels != 0 || complete_square)) {
-				if(sqrt_to_square(*this)) return true;
+				if(sqrt_to_square(*this, eo)) return true;
 				if(only_integers) {
 					if(complete_square_int(*this)) return true;
 				} else {

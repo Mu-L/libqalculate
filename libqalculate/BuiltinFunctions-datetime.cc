@@ -227,6 +227,40 @@ int DaysFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, 
 	mstruct.set(days);
 	return 1;
 }
+YMDFunction::YMDFunction() : MathFunction("ymd", 2) {
+	setArgumentDefinition(1, new DateArgument());
+	setArgumentDefinition(2, new DateArgument());
+}
+int YMDFunction::calculate(MathStructure &mstruct, const MathStructure &vargs, const EvaluationOptions&) {
+	QalculateDateTime date1(*vargs[0].datetime()), date2(*vargs[1].datetime());
+	bool neg = (date1 > date2);
+	if(neg) {
+		date2 = date1;
+		date1 = *vargs[1].datetime();
+	}
+	Number years(date2.year());
+	years -= date1.year();
+	Number months(date2.month());
+	months -= date1.month();
+	date1.addYears(years);
+	date1.addMonths(months);
+	Number days(date1.daysTo(date2));
+	if(days < 0) {
+		months--;
+		date1.addMonths(-1);
+		days = date1.daysTo(date2);
+	}
+	if(months < 0) {
+		years--;
+		months += 12;
+	}
+	mstruct.clearVector();
+	if(neg) {years.negate(); months.negate(); days.negate();}
+	mstruct.addChild(years);
+	mstruct.addChild(months);
+	mstruct.addChild(days);
+	return 1;
+}
 YearFracFunction::YearFracFunction() : MathFunction("yearfrac", 2, 4) {
 	setArgumentDefinition(1, new DateArgument());
 	setArgumentDefinition(2, new DateArgument());

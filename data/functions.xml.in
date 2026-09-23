@@ -3090,6 +3090,18 @@ Basis is the type of day counting you want to use: 0: US 30/360, 1: real days (d
         <title>Financial function mode</title>
       </argument>
     </builtin_function>
+    <builtin_function name="ymd">
+      <title>Calendar years, months and days between dates</title>
+      <names>r:ymd</names>
+      <description>Returns a vector with the number of calendar years, months, and days between two dates.</description>
+      <example>$name(2025-05-30, 2026-08-23) = [1  2  24]</example>
+      <argument index="1">
+        <title>First date</title>
+      </argument>
+      <argument index="2">
+        <title>Second date</title>
+      </argument>
+    </builtin_function>
     <builtin_function name="week">
       <title>Week of Year</title>
       <names>r:week</names>

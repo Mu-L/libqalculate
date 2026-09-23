@@ -1869,6 +1869,7 @@ void Calculator::addBuiltinFunctions() {
 	f_year = addFunction(new YearFunction());
 	f_yearday = addFunction(new YeardayFunction());
 	f_time = addFunction(new TimeFunction());
+	addFunction(new YMDFunction());
 	f_add_days = addFunction(new AddDaysFunction());
 	f_add_months = addFunction(new AddMonthsFunction());
 	f_add_years = addFunction(new AddYearsFunction());

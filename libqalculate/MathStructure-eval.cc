@@ -557,16 +557,61 @@ bool calculate_differentiable_functions(MathStructure &m, const EvaluationOption
 	}
 	return b;
 }
+bool contains_dataset_function_interval(const MathStructure &m, const EvaluationOptions &eo) {
+	if(m.isFunction() && m.function() != eo.protected_function && m.function()->subtype() == SUBTYPE_DATA_SET) {
+		MathStructure mtest(m);
+		CALCULATOR->beginTemporaryStopMessages();
+		bool b = mtest.calculateFunctions(eo, false);
+		CALCULATOR->endTemporaryStopMessages();
+		if(!b) return false;
+		if(mtest.containsInterval(false, false, false, 1, true)) return true;
+		return contains_dataset_function_interval(mtest, eo);
+	} else if(m.isVariable() && m.variable()->isKnown() && !((KnownVariable*) m.variable())->get().contains(m)) {
+		return contains_dataset_function_interval(((KnownVariable*) m.variable())->get(), eo);
+	}
+	for(size_t i = 0; i < m.size(); i++) {
+		if(contains_dataset_function_interval(m[i], eo)) return true;
+	}
+	return false;
+}
+bool replace_in_variables(MathStructure &m, MathStructure *mtop, const MathStructure &mold, const MathStructure &mnew) {
+	if(m.isVariable() && m.variable()->isKnown()) {
+		if(((KnownVariable*) m.variable())->get().contains(mold, true, !((KnownVariable*) m.variable())->get().contains(m))) {
+			MathStructure mbak(m);
+			MathStructure mvar(((KnownVariable*) m.variable())->get());
+			mvar.replace(mold, mnew);
+			if(!mvar.contains(mbak)) replace_in_variables(mvar, mtop, mold, mnew);
+			Variable *v = new KnownVariable("", format_and_print(m), mvar);
+			m.set(v, true);
+			mtop->replace(mbak, m);
+			return true;
+		}
+	}
+	bool b = false;
+	for(size_t i = 0; i < m.size(); i++) {
+		if(CALCULATOR->aborted()) break;
+		if(replace_in_variables(m[i], mtop, mold, mnew)) {
+			m.childUpdated(i + 1);
+			b = true;
+		}
+	}
+	return b;
+}
 bool calculate_dataset_functions(MathStructure &m, MathStructure *mtop, const EvaluationOptions &eo, bool do_unformat, size_t depth = 0) {
 	if(!check_recursive_function_depth(depth)) return false;
+	if(m.isVariable() && m.variable()->isKnown() && contains_dataset_function_interval(((KnownVariable*) m.variable())->get(), eo)) {
+		MathStructure mvar(((KnownVariable*) m.variable())->get());
+		calculate_dataset_functions(mvar, mtop, eo, do_unformat, depth);
+	}
 	if(m.isFunction() && m.function() != eo.protected_function && m.function()->subtype() == SUBTYPE_DATA_SET) {
 		MathStructure mbak(m);
 		if(m.calculateFunctions(eo, false, do_unformat)) {
-			if(m.containsInterval(false, false, false, 1, true) && mtop->contains(mbak, true)) {
+			if(m.containsInterval(false, false, false, 1, true) && mtop->contains(mbak, true, true)) {
 				Variable *v = new KnownVariable("", format_and_print(m), m);
 				m.set(v, true);
 				v->destroy();
 				mtop->replace(mbak, m);
+				replace_in_variables(*mtop, mtop, mbak, m);
 			}
 			calculate_dataset_functions(m, mtop, eo, do_unformat, depth + 1);
 			return true;
